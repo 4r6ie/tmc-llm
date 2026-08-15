@@ -1,12 +1,3 @@
-Maganda. Sa tingin ko **ito ang tamang sequence**.
-
-❌ Huwag muna Android.
-❌ Huwag muna Java.
-❌ Huwag muna deployment.
-
-**Model muna.**
-
-Actually, ganito rin ang ginagawa ng OpenAI, Meta (Llama), Google (Gemma), at Alibaba (Qwen). **Una nilang binubuo ang model**, saka lang nila iniisip ang deployment.
 
 ---
 
