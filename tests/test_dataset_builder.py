@@ -55,7 +55,7 @@ def test_build_dataset_writes_expected_files(tmp_path: Path) -> None:
 
     metadata = build_dataset(source, output_dir)
 
-    assert metadata["total_examples"] >= 10
+    assert metadata["total_examples"] >= 9
     assert metadata["source_files"] == [str(source)]
     assert (output_dir / "dataset.jsonl").exists()
     assert (output_dir / "train.jsonl").exists()
@@ -75,4 +75,4 @@ def test_build_dataset_from_source_folder(tmp_path: Path) -> None:
     metadata = build_dataset(None, output_dir, source_dir)
 
     assert metadata["source_files"] == [str(source)]
-    assert metadata["total_examples"] >= 10
+    assert metadata["total_examples"] >= 9

@@ -1,0 +1,10 @@
+{
+  "legacyEditor": false,
+  "attachmentFolderPath": "./attachments",
+  "newLinkFormat": "shortest",
+  "useMarkdownLinks": false,
+  "showFrontmatter": true,
+  "enabledPlugins": [],
+  "promptDelete": true,
+  "showUnsupportedFiles": false
+}

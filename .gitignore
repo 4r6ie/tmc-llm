@@ -13,3 +13,12 @@ models/gguf/*
 !models/gguf/.gitkeep
 external/*
 !external/.gitkeep
+
+# Obsidian
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/hotkeys.json
+.obsidian/appearance.json
+.obsidian/backlink.json
+.obsidian/graph.json
+attachments/
