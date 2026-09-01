@@ -23,6 +23,9 @@ NEGATIVE_ANSWER = (
     "Please contact the appropriate TMC office for assistance."
 )
 
+SCHOOL_NAME = "Trinidad Municipal College"
+
+
 NEGATIVE_QUESTIONS = [
     ("What is the tuition fee for international students at TMC?",
      "The available TMC source does not contain information about tuition fees for international students. Please contact the Registrar's Office or Accounting Office for details."),
@@ -157,6 +160,58 @@ def extract_label_values(text: str) -> list[tuple[str, str]]:
     return labels
 
 
+LABEL_QUESTION_PHRASINGS: dict[str, list[str]] = {
+    "vision": [
+        "What is the vision of {school}?",
+        "Can you tell me {school}'s vision?",
+        "What is Trinidad Municipal College's vision statement?",
+        "What does {school} aspire to become?",
+    ],
+    "mission": [
+        "What is the mission of {school}?",
+        "Can you tell me {school}'s mission?",
+        "What is Trinidad Municipal College's mission statement?",
+        "What is {school} committed to doing?",
+    ],
+    "goal": [
+        "What is the goal of {school}?",
+        "Can you tell me {school}'s goal?",
+        "What are the institutional goals of Trinidad Municipal College?",
+    ],
+    "philosophy": [
+        "What is the philosophy of {school}?",
+        "Can you explain {school}'s philosophy?",
+        "What does Trinidad Municipal College believe in?",
+    ],
+    "slogan": [
+        "What is the slogan of {school}?",
+        "Can you tell me {school}'s slogan?",
+        "What is Trinidad Municipal College's motto or slogan?",
+    ],
+    "core values": [
+        "What are the core values of {school}?",
+        "Can you tell me {school}'s core values?",
+        "What values does Trinidad Municipal College uphold?",
+    ],
+    "history": [
+        "What is the history of {school}?",
+        "Can you tell me how {school} was founded?",
+        "Tell me about Trinidad Municipal College's beginnings.",
+        "When was {school} established?",
+    ],
+}
+
+
+def label_question_templates(label: str) -> list[str]:
+    normalized = normalize_label(label)
+    templates = LABEL_QUESTION_PHRASINGS.get(normalized, [])
+    fallback = [
+        f"What can you tell me about {normalized} at {SCHOOL_NAME}?",
+        f"Describe {normalized} at Trinidad Municipal College.",
+    ]
+    return templates or fallback
+
+
 def build_label_examples(documents: list[LoadedDocument]) -> list[Example]:
     examples: list[Example] = []
     for document in documents:
@@ -171,6 +226,61 @@ def build_label_examples(documents: list[LoadedDocument]) -> list[Example]:
                 )
             )
 
+    return examples
+
+
+def build_conversational_label_examples(documents: list[LoadedDocument]) -> list[Example]:
+    examples: list[Example] = []
+    for document in documents:
+        for label, value in extract_label_values(document.text):
+            label_text = normalize_label(label)
+            templates = label_question_templates(label_text)
+            source = f"qa-label:{document.path.as_posix()}:{label_text}"
+            for template in templates:
+                question = template.replace("{school}", "TMC")
+                examples.append(
+                    Example(
+                        user=question,
+                        assistant=value,
+                        source=source,
+                    )
+                )
+    return examples
+
+
+def build_section_examples(document: LoadedDocument, sections: dict[str, str]) -> list[Example]:
+    examples: list[Example] = []
+    for name, body in sections.items():
+        if not body:
+            continue
+        for index, chunk in enumerate(chunk_text(body)):
+            section_name = compact_spaces(name.title())
+            source = f"section:{document.path.as_posix()}:{name.lower().replace(' ', '_')}:{index}"
+            examples.append(
+                Example(
+                    make_source_prompt("section", document, f"Section: {section_name}"),
+                    chunk,
+                    source,
+                )
+            )
+    return examples
+
+
+def build_conversational_section_examples(document: LoadedDocument, sections: dict[str, str]) -> list[Example]:
+    examples: list[Example] = []
+    for name, body in sections.items():
+        if not body:
+            continue
+        section_name = compact_spaces(name.title())
+        question = f"What does TMC say about {section_name}?"
+        source = f"qa-section:{document.path.as_posix()}:{name.lower().replace(' ', '_')}"
+        examples.append(
+            Example(
+                user=question,
+                assistant=body,
+                source=source,
+            )
+        )
     return examples
 
 
@@ -196,6 +306,13 @@ def build_all_section_examples(documents: list[LoadedDocument]) -> list[Example]
     examples: list[Example] = []
     for document in documents:
         examples.extend(build_section_examples(document, extract_sections(document.text)))
+    return examples
+
+
+def build_all_conversational_section_examples(documents: list[LoadedDocument]) -> list[Example]:
+    examples: list[Example] = []
+    for document in documents:
+        examples.extend(build_conversational_section_examples(document, extract_sections(document.text)))
     return examples
 
 
@@ -344,6 +461,8 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
         qa_examples
         + paraphrase_examples
         + negative_examples
+        + build_conversational_label_examples(documents)
+        + build_all_conversational_section_examples(documents)
         + build_label_examples(documents)
         + build_all_section_examples(documents)
         + build_document_examples(documents)
@@ -370,6 +489,8 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
         "qa_pairs": len(qa_examples),
         "qa_paraphrases": len(paraphrase_examples),
         "negative_examples": len(negative_examples),
+        "conversational_label_examples": len(build_conversational_label_examples(documents)),
+        "conversational_section_examples": len(build_all_conversational_section_examples(documents)),
         "total_examples": len(unique_examples),
         "train_examples": len(train),
         "validation_examples": len(validation),

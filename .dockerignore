@@ -1,0 +1,38 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Model artifacts (large, downloaded/built at runtime)
+models/
+**/models/
+
+# Processed data (can be regenerated)
+data/processed/
+data/gguf/
+
+# Version control
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# llama.cpp (cloned inside the Dockerfile)
+external/llama.cpp/
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.obsidian/

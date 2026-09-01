@@ -49,20 +49,37 @@ def format_messages(tokenizer: AutoTokenizer, messages: list[dict]) -> str:
 
 
 def tokenize_dataset(tokenizer: AutoTokenizer, rows: list[dict], max_length: int) -> Dataset:
-    texts = [format_messages(tokenizer, row["messages"]) for row in rows]
-    dataset = Dataset.from_dict({"text": texts})
+    samples: list[dict] = []
+    for row in rows:
+        messages = row["messages"]
+        if not messages:
+            continue
 
-    def tokenize(batch: dict) -> dict:
-        tokenized = tokenizer(
-            batch["text"],
-            truncation=True,
-            max_length=max_length,
-            padding=False,
-        )
-        tokenized["labels"] = tokenized["input_ids"].copy()
-        return tokenized
+        assistant_index = None
+        for index, message in enumerate(messages):
+            if message.get("role") == "assistant":
+                assistant_index = index
+                break
+        if assistant_index is None:
+            continue
 
-    return dataset.map(tokenize, batched=True, remove_columns=["text"])
+        prompt_messages = messages[:assistant_index]
+        full_messages = messages[: assistant_index + 1]
+
+        prompt_text = format_messages(tokenizer, prompt_messages)
+        full_text = format_messages(tokenizer, full_messages)
+
+        prompt_ids = tokenizer(prompt_text, truncation=True, max_length=max_length)["input_ids"]
+        full_ids = tokenizer(full_text, truncation=True, max_length=max_length)["input_ids"]
+
+        labels = [-100] * len(full_ids)
+        if len(full_ids) > len(prompt_ids):
+            assistant_len = len(full_ids) - len(prompt_ids)
+            labels[-assistant_len:] = full_ids[-assistant_len:]
+
+        samples.append({"input_ids": full_ids, "attention_mask": [1] * len(full_ids), "labels": labels})
+
+    return Dataset.from_list(samples)
 
 
 def pick_dtype() -> torch.dtype:
@@ -126,7 +143,7 @@ def train(config_path: Path) -> None:
     )
 
     output_dir = config["output_dir"]
-    versioned_dir = f"{output_dir}-v{version}"
+    versioned_dir = output_dir
     training_kwargs = {
         "output_dir": versioned_dir,
         "overwrite_output_dir": True,
@@ -141,7 +158,10 @@ def train(config_path: Path) -> None:
         "eval_steps": config["eval_steps"],
         "save_total_limit": 2,
         "report_to": [],
-        "fp16": torch.cuda.is_available(),
+        "fp16": bool(config.get("fp16", torch.cuda.is_available())),
+        "bf16": bool(config.get("bf16", False)),
+        "lr_scheduler_type": config.get("lr_scheduler_type", "linear"),
+        "weight_decay": config.get("weight_decay", 0.0),
         "dataloader_pin_memory": False,
     }
     supported_args = set(inspect.signature(TrainingArguments).parameters)

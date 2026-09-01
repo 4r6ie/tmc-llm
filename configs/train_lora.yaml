@@ -1,13 +1,14 @@
 base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
 dataset_train: data/processed/train.jsonl
 dataset_validation: data/processed/validation.jsonl
-output_dir: models/adapters/tmc-lm-tinyllama-lora
+output_dir: models/adapters/tmc-lm-tinyllama-lora-v1.0
 
 version: "1.0"
 
 max_seq_length: 768
 num_train_epochs: 5
-max_steps: 300
+# max_steps is intentionally disabled (-1) so the trainer runs all epochs
+max_steps: -1
 per_device_train_batch_size: 1
 gradient_accumulation_steps: 16
 learning_rate: 0.0002
@@ -15,6 +16,12 @@ warmup_steps: 10
 logging_steps: 10
 save_steps: 50
 eval_steps: 50
+lr_scheduler_type: cosine
+weight_decay: 0.01
+
+# Colab T4 GPU: use fp16 (bf16 not supported on T4)
+bf16: false
+fp16: true
 
 lora:
   r: 16

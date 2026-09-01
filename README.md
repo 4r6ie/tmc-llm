@@ -238,7 +238,7 @@ Create a `Dockerfile` in the project root:
 
 ```dockerfile
 # Base image with Python 3.12 and CUDA support
-FROM nvidia/cuda:12.1-devel-ubuntu22.04
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
