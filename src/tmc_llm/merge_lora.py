@@ -24,8 +24,8 @@ def merge_lora(base_model: str, adapter_dir: Path, output_dir: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Merge a LoRA adapter into TinyLlama.")
     parser.add_argument("--base-model", default="TinyLlama/TinyLlama-1.1B-Chat-v1.0")
-    parser.add_argument("--adapter-dir", type=Path, default=Path("models/adapters/tmc-lm-tinyllama-lora"))
-    parser.add_argument("--output-dir", type=Path, default=Path("models/merged/tmc-lm-tinyllama"))
+    parser.add_argument("--adapter-dir", type=Path, default=Path("models/adapters/tmc-lm-tinyllama-lora-v1.0"))
+    parser.add_argument("--output-dir", type=Path, default=Path("models/merged/tmc-lm-tinyllama-v1.0"))
     return parser.parse_args()
 
 

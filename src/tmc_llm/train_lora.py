@@ -90,6 +90,7 @@ def train(config_path: Path) -> None:
     quiet_external_noise()
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     base_model = config["base_model"]
+    version = config.get("version", "0.0")
 
     tokenizer = AutoTokenizer.from_pretrained(base_model, use_fast=True)
     if tokenizer.pad_token is None:
@@ -125,8 +126,9 @@ def train(config_path: Path) -> None:
     )
 
     output_dir = config["output_dir"]
+    versioned_dir = f"{output_dir}-v{version}"
     training_kwargs = {
-        "output_dir": output_dir,
+        "output_dir": versioned_dir,
         "overwrite_output_dir": True,
         "num_train_epochs": config["num_train_epochs"],
         "max_steps": config["max_steps"],
@@ -158,8 +160,27 @@ def train(config_path: Path) -> None:
         data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
     )
     trainer.train()
-    trainer.save_model(output_dir)
-    tokenizer.save_pretrained(output_dir)
+    trainer.save_model(versioned_dir)
+    tokenizer.save_pretrained(versioned_dir)
+
+    metadata = {
+        "version": version,
+        "base_model": base_model,
+        "dataset_train": config["dataset_train"],
+        "dataset_validation": config["dataset_validation"],
+        "num_train_epochs": config["num_train_epochs"],
+        "max_steps": config["max_steps"],
+        "per_device_train_batch_size": config["per_device_train_batch_size"],
+        "gradient_accumulation_steps": config["gradient_accumulation_steps"],
+        "learning_rate": config["learning_rate"],
+        "lora": config["lora"],
+        "output_dir": versioned_dir,
+    }
+    metadata_path = Path(versioned_dir) / "metadata.json"
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    print(f"Training complete. Model version {version} saved to {versioned_dir}")
+    print(f"Metadata written to {metadata_path}")
 
 
 def parse_args() -> argparse.Namespace:

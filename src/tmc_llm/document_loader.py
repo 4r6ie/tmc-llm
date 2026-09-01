@@ -68,9 +68,27 @@ def load_pdf(path: Path) -> str:
     with fitz.open(path) as pdf:
         for index, page in enumerate(pdf, start=1):
             page_text = page.get_text("text")
+            if not page_text.strip() or len(page_text.strip()) < 20:
+                page_text = ocr_page(page, index)
             if page_text.strip():
                 parts.append(f"[Page {index}]\n{page_text}")
     return "\n\n".join(parts)
+
+
+def ocr_page(page: object, index: int) -> str:
+    """Try OCR on a scanned page. Falls back to a note if tesseract is unavailable."""
+    try:
+        import pytesseract
+        from PIL import Image
+    except ImportError as exc:
+        return f"[Page {index}] (OCR unavailable: install pytesseract and Pillow)"
+
+    try:
+        pixmap = page.get_pixmap(dpi=200)
+        image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+        return pytesseract.image_to_string(image)
+    except Exception:
+        return f"[Page {index}] (OCR failed)"
 
 
 def load_docx(path: Path) -> str:

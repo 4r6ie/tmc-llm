@@ -1,6 +1,6 @@
 param(
     [string]$LlamaCppDir = ".\external\llama.cpp",
-    [string]$MergedModelDir = ".\models\merged\tmc-lm-tinyllama",
+    [string]$MergedModelDir = ".\models\merged\tmc-lm-tinyllama-v1.0",
     [string]$OutputDir = ".\models\gguf",
     [string]$Quantization = "Q4_K_M"
 )

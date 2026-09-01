@@ -1,0 +1,280 @@
+RESEARCH MANUAL - TRINIDAD MUNICIPAL COLLEGE
+
+Effective Date: Academic Year 2022-2023
+Approved by: Office of the College President and the Research Ethics Committee
+
+------------------------------------------------------------------------
+
+SECTION 1: RESEARCH OVERVIEW
+
+1.1 Purpose
+This Research Manual establishes the policies, guidelines, and procedures for conducting research at Trinidad Municipal College (TMC). It ensures that research activities are conducted ethically, rigorously, and in compliance with national and institutional standards.
+
+1.2 Research Philosophy
+TMC believes that research is essential for institutional growth, faculty development, and student learning. Research activities should contribute to the advancement of knowledge, address community needs, and support the college's mission.
+
+1.3 Research Objectives
+- Promote a culture of research among faculty and students
+- Generate new knowledge relevant to the local community and beyond
+- Improve teaching and learning through evidence-based practices
+- Contribute to national development through research and innovation
+- Establish partnerships with other institutions and organizations
+
+------------------------------------------------------------------------
+
+SECTION 2: RESEARCH ETHICS
+
+2.1 Ethical Principles
+All research at TMC must adhere to the following ethical principles:
+- Respect for persons: participants must be treated with dignity and respect
+- Beneficence: research must maximize benefits and minimize harm
+- Justice: research must be fair and equitable
+- Informed consent: participants must voluntarily agree to participate
+- Confidentiality: participant information must be kept confidential
+- Integrity: research must be conducted with honesty and transparency
+
+2.2 Research Ethics Committee (REC)
+- The REC is responsible for reviewing and approving all research involving human participants
+- The REC is composed of five (5) members: chairperson, two (2) faculty representatives, one (2) external member, and one (2) community representative
+- The REC meets at least once a month
+- Research proposals must be submitted to the REC at least two (2) weeks before the scheduled meeting
+
+2.3 Ethical Review Process
+Step 1: Researcher submits the research proposal to the REC
+Step 2: REC reviews the proposal for ethical compliance
+Step 3: REC provides feedback or requests revisions
+Step 4: Researcher revises the proposal as needed
+Step 5: REC approves the proposal with an ethics clearance certificate
+Step 6: Researcher conducts the research with ongoing ethical oversight
+
+2.4 Informed Consent
+- Participants must be provided with a consent form that includes:
+  - Purpose and procedures of the research
+  - Expected benefits and risks
+  - Right to withdraw at any time
+  - Confidentiality measures
+  - Contact information of the researcher and REC
+- Participants must sign the consent form before participating
+- For minors, parental consent and minor assent are required
+
+2.5 Risk Assessment
+- Research involving vulnerable populations requires additional ethical review
+- Research involving deception must be justified and must not cause harm
+- Research involving sensitive topics requires additional confidentiality measures
+
+------------------------------------------------------------------------
+
+SECTION 3: RESEARCH PROPOSAL
+
+3.1 Proposal Requirements
+A research proposal must include the following:
+- Title of the study
+- Statement of the problem
+- Review of related literature
+- Theoretical or conceptual framework
+- Research methodology
+- Ethical considerations
+- Timeline
+- Budget
+- References
+
+3.2 Proposal Format
+Research proposals must follow the prescribed format:
+- Font: Times New Roman, 12pt
+- Spacing: double-spaced
+- Margins: 1 inch on all sides
+- Citation style: APA (American Psychological Association) 7th Edition
+- Page numbers: bottom center
+
+3.3 Proposal Submission
+- Faculty research proposals must be endorsed by the Department Head
+- Student research proposals must be endorsed by the research adviser
+- Proposals must be submitted to the REC through the Research Office
+- Electronic copies must be submitted through the TMC Research Portal
+
+3.4 Proposal Evaluation
+Proposals are evaluated based on:
+- Significance and relevance of the study
+- Soundness of the research design and methodology
+- Feasibility and timeliness
+- Ethical compliance
+- Qualifications of the research team
+
+------------------------------------------------------------------------
+
+SECTION 4: RESEARCH METHODOLOGY
+
+4.1 Quantitative Research
+- Experimental, quasi-experimental, and non-experimental designs
+- Surveys and questionnaires
+- Statistical analysis (descriptive and inferential)
+- Validity and reliability of instruments
+
+4.2 Qualitative Research
+- Case study, phenomenological, grounded theory, and ethnographic designs
+- Interviews, focus group discussions, and observations
+- Thematic analysis and coding
+- Trustworthiness criteria (credibility, transferability, dependability, confirmability)
+
+4.3 Mixed Methods Research
+- Sequential, concurrent, and transformative designs
+- Integration of quantitative and qualitative approaches
+- Triangulation of data sources
+
+4.4 Action Research
+- Conducted by faculty to improve teaching and learning
+- Cyclical process: plan, act, observe, reflect
+- Results are used for program improvement
+
+------------------------------------------------------------------------
+
+SECTION 5: STUDENT RESEARCH
+
+5.1 Undergraduate Research
+- All programs require a capstone project or thesis
+- Research courses are integrated into the curriculum
+- Students must enroll in the research course during their final year
+
+5.2 Thesis Requirements
+- Must be original and not previously submitted for another degree
+- Must follow the TMC thesis format and guidelines
+- Must be defended before a panel of evaluators
+- Must be submitted to the library and Research Office
+
+5.3 Research Adviser
+- Each student researcher is assigned a research adviser
+- The adviser guides the student through the research process
+- The adviser must have expertise in the research topic
+- The adviser must be available for consultation and mentoring
+
+5.4 Research Panel
+- The panel consists of three (3) to five (5) members
+- The panel includes the research adviser and external evaluators
+- The panel evaluates the research proposal and final defense
+- The panel provides feedback and recommendations
+
+5.5 Plagiarism Policy
+- Plagiarism is strictly prohibited at TMC
+- All research papers are checked for plagiarism using Turnitin or similar software
+- Plagiarism may result in:
+  - Automatic failure of the research course
+  - Disciplinary action
+  - Revocation of degree (if discovered after graduation)
+
+------------------------------------------------------------------------
+
+SECTION 6: RESEARCH PUBLICATION
+
+6.1 Publication Encouragement
+TMC encourages faculty and students to publish their research in:
+- TMC Research Journal (institutional journal)
+- National and international peer-reviewed journals
+- Conference proceedings
+- Books and book chapters
+
+6.2 Publication Requirements
+- Research must be completed and approved by the REC before publication
+- Authors must obtain permission to publish from the Research Office
+- Co-authorship must be properly acknowledged
+- Publication fees may be subsidized by TMC, subject to budget availability
+
+6.3 Copyright
+- Authors retain copyright of their published work
+- TMC is granted a non-exclusive license to use the research for institutional purposes
+- Reproduction of published work must be properly cited
+
+------------------------------------------------------------------------
+
+SECTION 7: RESEARCH DISSEMINATION
+
+7.1 Research Presentation
+- Faculty and students are encouraged to present their research at:
+  - TMC Research Colloquium (annual institutional event)
+  - National and international conferences
+  - Departmental seminars and forums
+
+7.2 Research Colloquium
+- TMC holds an annual Research Colloquium
+- All completed research must be presented at the colloquium
+- Best research awards are given to outstanding researchers
+- The colloquium promotes research culture and networking
+
+7.3 Research Repository
+- All completed research papers are archived in the TMC Research Repository
+- The repository is accessible to faculty, students, and the public
+- Research papers are uploaded to the TMC Research Portal
+
+------------------------------------------------------------------------
+
+SECTION 8: RESEARCH FUNDING
+
+8.1 Internal Funding
+- TMC provides research grants for approved research proposals
+- The research fund is allocated annually from the institutional budget
+- Faculty may apply for research grants through the Research Office
+
+8.2 External Funding
+- Faculty and students may seek external funding from:
+  - CHED research grants
+  - DOST (Department of Science and Technology) research grants
+  - Other government agencies
+  - Private organizations and NGOs
+- External funding applications must be endorsed by the Research Office
+
+8.3 Financial Management
+- Research funds must be used for research-related expenses only
+- Financial reports must be submitted within thirty (30) days after the research is completed
+- Unused funds must be returned to the research fund
+
+------------------------------------------------------------------------
+
+SECTION 9: RESEARCH OUTPUT MANAGEMENT
+
+9.1 Research Documentation
+- All research outputs must be properly documented and archived
+- Research data must be retained for at least five (5) years
+- Research reports must be submitted to the Research Office and library
+
+9.2 Intellectual Property
+- Research outputs may be subject to intellectual property protection
+- Patent applications must be coordinated with the Research Office
+- Commercialization of research outputs requires institutional approval
+
+9.3 Research Impact
+- The impact of research is monitored through:
+  - Citation counts
+  - Policy influence
+  - Community impact
+  - Commercialization outcomes
+
+------------------------------------------------------------------------
+
+SECTION 10: CONTACT INFORMATION
+
+10.1 Research Office
+- Location: Research Office, Administration Building, Trinidad Municipal College
+- Office Hours: Monday to Friday, 7:30 AM to 5:00 PM
+- Telephone: (038) XXX-XXXX
+- Email: research@tmc.edu.ph
+
+10.2 Research Ethics Committee
+- Chairperson: [Designated Faculty Member]
+- Meeting Schedule: First Wednesday of each month
+- Submission Deadline: Two (2) weeks before the scheduled meeting
+
+------------------------------------------------------------------------
+
+Approved by:
+
+_________________________________
+Research Ethics Committee Chairperson
+Trinidad Municipal College
+
+Date: _______________
+
+Reviewed by:
+
+_________________________________
+College President
+
+Date: _______________

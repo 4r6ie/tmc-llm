@@ -18,6 +18,44 @@ SYSTEM_PROMPT = (
     "If the source does not contain the answer, say that the available TMC source does not contain it."
 )
 
+NEGATIVE_ANSWER = (
+    "The available TMC source does not contain this information. "
+    "Please contact the appropriate TMC office for assistance."
+)
+
+NEGATIVE_QUESTIONS = [
+    ("What is the tuition fee for international students at TMC?",
+     "The available TMC source does not contain information about tuition fees for international students. Please contact the Registrar's Office or Accounting Office for details."),
+    ("What is the exact salary of a TMC professor?",
+     "The available TMC source does not contain specific salary figures. TMC follows the Salary Standardization Table for LGU employees. Please contact the HRMO for details."),
+    ("How many computers does the TMC computer lab have?",
+     "The available TMC source does not contain the exact number of computers in the TMC computer lab. Please contact the IT Department for details."),
+    ("What is the Wi-Fi password at TMC?",
+     "The available TMC source does not contain the Wi-Fi password. Please ask at the IT Department or Administration Office for Wi-Fi access details."),
+    ("Does TMC have a swimming pool?",
+     "The available TMC source does not mention a swimming pool at TMC. Please contact the Administration Office for information about campus facilities."),
+    ("What is the current enrollment deadline for next semester?",
+     "The available TMC source does not contain the current enrollment deadline. Please check the TMC website or contact the Registrar's Office for the latest enrollment schedule."),
+    ("Who is the current Registrar of TMC?",
+     "The available TMC source does not name the current Registrar. Please contact the Registrar's Office directly for the name of the current Registrar."),
+    ("What programming languages are taught in the BSIT program?",
+     "The available TMC source does not specify which programming languages are taught in the BSIT program. The program covers programming, networking, database management, and web development. Please contact the College of Computer Studies for specifics."),
+    ("How much is the graduation fee at TMC?",
+     "The available TMC source states the graduation fee is PHP 800.00. This covers ceremony expenses."),
+    ("What is the student-to-computer ratio at TMC?",
+     "The available TMC source does not contain the student-to-computer ratio. Please contact the College of Computer Studies or IT Department for details."),
+    ("Does TMC offer online classes?",
+     "The available TMC source does not specifically mention online class offerings. TMC provides morning, afternoon, and evening class schedules. Please contact the Registrar's Office for current class modalities."),
+    ("What is the address of TMC?",
+     "Trinidad Municipal College is located in the Municipality of Trinidad, Province of Bohol, Philippines. Please contact the Administration Office for the exact street address."),
+    ("Does TMC have a basketball court?",
+     "The available TMC source mentions open grounds and sports facilities on campus but does not specifically mention a basketball court. Please contact the Administration Office for details."),
+    ("What is the process for filing a grade appeal at TMC?",
+     "The available TMC source does not contain a specific grade appeal process. Grades are final once recorded and signed by the Department Head. Grade changes require approval from the Department Head and Academic Affairs. Please contact the Registrar's Office for guidance."),
+    ("How many sections per class does TMC have?",
+     "The available TMC source does not specify the number of sections per class. Please contact the Academic Affairs Office for details."),
+]
+
 
 @dataclass(frozen=True)
 class Example:
@@ -61,14 +99,29 @@ def extract_sections(text: str) -> dict[str, str]:
         if not line:
             continue
 
-        if re.fullmatch(r"[A-Z][A-Z0-9 &,./'()\-]+:", line):
-            current = line.rstrip(":").strip()
+        header = section_header(line)
+        if header:
+            current = header
             sections.setdefault(current, [])
             continue
 
         sections.setdefault(current, []).append(line)
 
     return {name: compact_spaces(" ".join(lines)) for name, lines in sections.items() if lines}
+
+
+_SECTION_HEADER_PATTERNS = [
+    re.compile(r"^[A-Z][A-Z0-9 &,./'()%\-]+:$"),
+    re.compile(r"^SECTION\s+\d+(\.\d+)?:\s+[A-Za-z0-9][A-Za-z0-9 &,.'/()%\-]*$"),
+    re.compile(r"^\d+\.\d+\s+[A-Z][A-Za-z0-9 &,.'/()%\-]+$"),
+]
+
+
+def section_header(line: str) -> str | None:
+    for pattern in _SECTION_HEADER_PATTERNS:
+        if pattern.fullmatch(line):
+            return line.rstrip(":").strip()
+    return None
 
 
 def chunk_text(text: str, max_words: int = 130) -> list[str]:
@@ -189,6 +242,72 @@ def write_corpus(path: Path, documents: list[LoadedDocument]) -> None:
     path.write_text(content, encoding="utf-8", newline="\n")
 
 
+def load_qa_pairs(qa_path: Path) -> list[Example]:
+    examples: list[Example] = []
+    if not qa_path.exists():
+        return examples
+    data = json.loads(qa_path.read_text(encoding="utf-8"))
+    for item in data:
+        question = item.get("question", "").strip()
+        answer = item.get("answer", "").strip()
+        if not question or not answer:
+            continue
+        source = f"qa:{qa_path.as_posix()}:{question[:60]}"
+        examples.append(
+            Example(
+                user=question,
+                assistant=answer,
+                source=source,
+            )
+        )
+    return examples
+
+
+def build_negative_examples(qa_path: Path | None = None) -> list[Example]:
+    examples: list[Example] = []
+    for question, answer in NEGATIVE_QUESTIONS:
+        source = f"negative:curated:{question[:60]}"
+        examples.append(
+            Example(
+                user=question,
+                assistant=answer,
+                source=source,
+            )
+        )
+    return examples
+
+
+PARAPHRASE_TEMPLATES = [
+    "Can you tell me {question}?",
+    "I'd like to know {question}.",
+    "Please explain: {question}",
+    "Could you answer this for me? {question}",
+]
+
+
+def paraphrase_question(question: str, template: str) -> str:
+    text = question.strip()
+    text = text.rstrip("?.")
+    sentence = template.replace("{question}", text)
+    return sentence.strip()
+
+
+def build_paraphrase_examples(qa_examples: list[Example], variants: int = 3) -> list[Example]:
+    paraphrased: list[Example] = []
+    templates = PARAPHRASE_TEMPLATES[:variants]
+    for example in qa_examples:
+        for index, template in enumerate(templates):
+            question = paraphrase_question(example.user, template)
+            paraphrased.append(
+                Example(
+                    user=question,
+                    assistant=example.assistant,
+                    source=f"{example.source}:paraphrase:{index}",
+                )
+            )
+    return paraphrased
+
+
 def collect_source_paths(source: Path | None, source_dir: Path | None) -> list[Path]:
     paths: list[Path] = []
     if source and source.exists():
@@ -215,8 +334,17 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
     documents = load_documents(source_paths)
     text = "\n\n".join(format_document_for_training(document) for document in documents)
     sections = extract_sections(text)
+
+    qa_path = source_dir / "tmc_qa.json" if source_dir else Path("data/raw/tmc_sources/tmc_qa.json")
+    qa_examples = load_qa_pairs(qa_path) if qa_path.exists() else []
+    paraphrase_examples = build_paraphrase_examples(qa_examples)
+    negative_examples = build_negative_examples()
+
     examples = (
-        build_label_examples(documents)
+        qa_examples
+        + paraphrase_examples
+        + negative_examples
+        + build_label_examples(documents)
         + build_all_section_examples(documents)
         + build_document_examples(documents)
     )
@@ -239,6 +367,9 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
 
     metadata = {
         "source_files": [str(document.path) for document in documents],
+        "qa_pairs": len(qa_examples),
+        "qa_paraphrases": len(paraphrase_examples),
+        "negative_examples": len(negative_examples),
         "total_examples": len(unique_examples),
         "train_examples": len(train),
         "validation_examples": len(validation),
