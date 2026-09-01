@@ -284,24 +284,6 @@ def build_conversational_section_examples(document: LoadedDocument, sections: di
     return examples
 
 
-def build_section_examples(document: LoadedDocument, sections: dict[str, str]) -> list[Example]:
-    examples: list[Example] = []
-    for name, body in sections.items():
-        if not body:
-            continue
-        for index, chunk in enumerate(chunk_text(body)):
-            section_name = compact_spaces(name.title())
-            source = f"section:{document.path.as_posix()}:{name.lower().replace(' ', '_')}:{index}"
-            examples.append(
-                Example(
-                    make_source_prompt("section", document, f"Section: {section_name}"),
-                    chunk,
-                    source,
-                )
-            )
-    return examples
-
-
 def build_all_section_examples(documents: list[LoadedDocument]) -> list[Example]:
     examples: list[Example] = []
     for document in documents:
@@ -430,7 +412,12 @@ def collect_source_paths(source: Path | None, source_dir: Path | None) -> list[P
     if source and source.exists():
         paths.append(source)
     if source_dir:
-        paths.extend(discover_documents(source_dir))
+        qa_file = source_dir / "tmc_qa.json"
+        paths.extend(
+            path
+            for path in discover_documents(source_dir)
+            if path.resolve() != qa_file.resolve()
+        )
 
     seen: set[Path] = set()
     unique_paths: list[Path] = []

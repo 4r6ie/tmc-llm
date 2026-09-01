@@ -15,7 +15,6 @@ from peft import LoraConfig, get_peft_model
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    DataCollatorForLanguageModeling,
     Trainer,
     TrainingArguments,
 )
@@ -72,14 +71,53 @@ def tokenize_dataset(tokenizer: AutoTokenizer, rows: list[dict], max_length: int
         prompt_ids = tokenizer(prompt_text, truncation=True, max_length=max_length)["input_ids"]
         full_ids = tokenizer(full_text, truncation=True, max_length=max_length)["input_ids"]
 
+        assistant_len = len(full_ids) - len(prompt_ids)
+        if assistant_len <= 0:
+            continue
+        if assistant_len < 5:
+            continue
+
         labels = [-100] * len(full_ids)
-        if len(full_ids) > len(prompt_ids):
-            assistant_len = len(full_ids) - len(prompt_ids)
-            labels[-assistant_len:] = full_ids[-assistant_len:]
+        labels[-assistant_len:] = full_ids[-assistant_len:]
 
         samples.append({"input_ids": full_ids, "attention_mask": [1] * len(full_ids), "labels": labels})
 
     return Dataset.from_list(samples)
+
+
+class PromptAwareDataCollator:
+    """Pads a batch without overwriting precomputed loss labels.
+
+    DataCollatorForLanguageModeling(mlm=False) clones input_ids into labels,
+    which destroys the -100 masks set in tokenize_dataset(). This collator only
+    pads input_ids/attention_mask/labels and leaves existing label values alone.
+    """
+
+    def __init__(self, tokenizer: AutoTokenizer, pad_to_multiple_of: int | None = None) -> None:
+        self.tokenizer = tokenizer
+        self.pad_to_multiple_of = pad_to_multiple_of
+
+    def __call__(self, features: list[dict]) -> dict[str, torch.Tensor]:
+        max_length = max(len(item["input_ids"]) for item in features)
+        if self.pad_to_multiple_of is not None:
+            max_length = self.pad_to_multiple_of * (max_length // self.pad_to_multiple_of + 1)
+
+        pad_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else 0
+
+        input_ids: list[list[int]] = []
+        attention_mask: list[list[int]] = []
+        labels: list[list[int]] = []
+        for item in features:
+            padding = max_length - len(item["input_ids"])
+            input_ids.append(item["input_ids"] + [pad_id] * padding)
+            attention_mask.append(item["attention_mask"] + [0] * padding)
+            labels.append(item["labels"] + [-100] * padding)
+
+        return {
+            "input_ids": torch.tensor(input_ids, dtype=torch.long),
+            "attention_mask": torch.tensor(attention_mask, dtype=torch.long),
+            "labels": torch.tensor(labels, dtype=torch.long),
+        }
 
 
 def pick_dtype() -> torch.dtype:
@@ -158,8 +196,8 @@ def train(config_path: Path) -> None:
         "eval_steps": config["eval_steps"],
         "save_total_limit": 2,
         "report_to": [],
-        "fp16": bool(config.get("fp16", torch.cuda.is_available())),
-        "bf16": bool(config.get("bf16", False)),
+        "fp16": bool(config.get("fp16", False)) and torch.cuda.is_available(),
+        "bf16": bool(config.get("bf16", False)) and torch.cuda.is_available(),
         "lr_scheduler_type": config.get("lr_scheduler_type", "linear"),
         "weight_decay": config.get("weight_decay", 0.0),
         "dataloader_pin_memory": False,
@@ -177,7 +215,7 @@ def train(config_path: Path) -> None:
         args=args,
         train_dataset=train_dataset,
         eval_dataset=validation_dataset,
-        data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
+        data_collator=PromptAwareDataCollator(tokenizer=tokenizer),
     )
     trainer.train()
     trainer.save_model(versioned_dir)
