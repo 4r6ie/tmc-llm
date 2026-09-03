@@ -1,3 +1,4 @@
+LICENSE
 README.md
 pyproject.toml
 src/tmc_llm/__init__.py
@@ -10,7 +11,11 @@ src/tmc_llm/train_lora.py
 src/tmc_llm.egg-info/PKG-INFO
 src/tmc_llm.egg-info/SOURCES.txt
 src/tmc_llm.egg-info/dependency_links.txt
+src/tmc_llm.egg-info/requires.txt
 src/tmc_llm.egg-info/top_level.txt
 tests/test_dataset_builder.py
 tests/test_document_loader.py
 tests/test_gguf_check.py
+tests/test_merge_lora.py
+tests/test_text_cleaning.py
+tests/test_train_lora.py
