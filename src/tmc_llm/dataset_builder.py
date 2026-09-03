@@ -26,38 +26,48 @@ NEGATIVE_ANSWER = (
 SCHOOL_NAME = "Trinidad Municipal College"
 
 
-NEGATIVE_QUESTIONS = [
+# (question, optional context) — the assistant reply is NEGATIVE_ANSWER, plus any
+# specific office guidance provided in the second element.
+NEGATIVE_QUESTIONS: list[tuple[str, str | None]] = [
     ("What is the tuition fee for international students at TMC?",
-     "The available TMC source does not contain information about tuition fees for international students. Please contact the Registrar's Office or Accounting Office for details."),
+     "Please contact the Registrar's Office or Accounting Office for details."),
     ("What is the exact salary of a TMC professor?",
-     "The available TMC source does not contain specific salary figures. TMC follows the Salary Standardization Table for LGU employees. Please contact the HRMO for details."),
+     "TMC follows the Salary Standardization Table for LGU employees. Please contact the HRMO for details."),
     ("How many computers does the TMC computer lab have?",
-     "The available TMC source does not contain the exact number of computers in the TMC computer lab. Please contact the IT Department for details."),
+     "Please contact the IT Department for details."),
     ("What is the Wi-Fi password at TMC?",
-     "The available TMC source does not contain the Wi-Fi password. Please ask at the IT Department or Administration Office for Wi-Fi access details."),
+     "Please ask at the IT Department or Administration Office for Wi-Fi access details."),
     ("Does TMC have a swimming pool?",
-     "The available TMC source does not mention a swimming pool at TMC. Please contact the Administration Office for information about campus facilities."),
+     "Please contact the Administration Office for information about campus facilities."),
     ("What is the current enrollment deadline for next semester?",
-     "The available TMC source does not contain the current enrollment deadline. Please check the TMC website or contact the Registrar's Office for the latest enrollment schedule."),
+     "Please check the TMC website or contact the Registrar's Office for the latest enrollment schedule."),
     ("Who is the current Registrar of TMC?",
-     "The available TMC source does not name the current Registrar. Please contact the Registrar's Office directly for the name of the current Registrar."),
+     "Please contact the Registrar's Office directly for the name of the current Registrar."),
     ("What programming languages are taught in the BSIT program?",
-     "The available TMC source does not specify which programming languages are taught in the BSIT program. The program covers programming, networking, database management, and web development. Please contact the College of Computer Studies for specifics."),
+     "The program covers programming, networking, database management, and web development. Please contact the College of Computer Studies for specifics."),
     ("How much is the graduation fee at TMC?",
-     "The available TMC source states the graduation fee is PHP 800.00. This covers ceremony expenses."),
+     "Please contact the Accounting Office for current fee schedules."),
     ("What is the student-to-computer ratio at TMC?",
-     "The available TMC source does not contain the student-to-computer ratio. Please contact the College of Computer Studies or IT Department for details."),
+     "Please contact the College of Computer Studies or IT Department for details."),
     ("Does TMC offer online classes?",
-     "The available TMC source does not specifically mention online class offerings. TMC provides morning, afternoon, and evening class schedules. Please contact the Registrar's Office for current class modalities."),
+     "TMC provides morning, afternoon, and evening class schedules. Please contact the Registrar's Office for current class modalities."),
     ("What is the address of TMC?",
-     "Trinidad Municipal College is located in the Municipality of Trinidad, Province of Bohol, Philippines. Please contact the Administration Office for the exact street address."),
+     "Please contact the Administration Office for the exact street address."),
     ("Does TMC have a basketball court?",
-     "The available TMC source mentions open grounds and sports facilities on campus but does not specifically mention a basketball court. Please contact the Administration Office for details."),
+     "TMC has open grounds and sports facilities on campus. Please contact the Administration Office for details."),
     ("What is the process for filing a grade appeal at TMC?",
-     "The available TMC source does not contain a specific grade appeal process. Grades are final once recorded and signed by the Department Head. Grade changes require approval from the Department Head and Academic Affairs. Please contact the Registrar's Office for guidance."),
+     "Grades are final once recorded and signed by the Department Head. Grade changes require approval from the Department Head and Academic Affairs. Please contact the Registrar's Office for guidance."),
     ("How many sections per class does TMC have?",
-     "The available TMC source does not specify the number of sections per class. Please contact the Academic Affairs Office for details."),
+     "Please contact the Academic Affairs Office for details."),
 ]
+
+
+def negative_answer(*context: str | None) -> str:
+    parts = [NEGATIVE_ANSWER]
+    for fragment in context:
+        if fragment and fragment.strip():
+            parts.append(fragment.strip())
+    return " ".join(parts)
 
 
 @dataclass(frozen=True)
@@ -362,14 +372,15 @@ def load_qa_pairs(qa_path: Path) -> list[Example]:
     return examples
 
 
-def build_negative_examples(qa_path: Path | None = None) -> list[Example]:
+def build_negative_examples() -> list[Example]:
     examples: list[Example] = []
-    for question, answer in NEGATIVE_QUESTIONS:
+    for item in NEGATIVE_QUESTIONS:
+        question, context = item
         source = f"negative:curated:{question[:60]}"
         examples.append(
             Example(
                 user=question,
-                assistant=answer,
+                assistant=negative_answer(context),
                 source=source,
             )
         )
@@ -443,13 +454,15 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
     qa_examples = load_qa_pairs(qa_path) if qa_path.exists() else []
     paraphrase_examples = build_paraphrase_examples(qa_examples)
     negative_examples = build_negative_examples()
+    conversational_label_examples = build_conversational_label_examples(documents)
+    conversational_section_examples = build_all_conversational_section_examples(documents)
 
     examples = (
         qa_examples
         + paraphrase_examples
         + negative_examples
-        + build_conversational_label_examples(documents)
-        + build_all_conversational_section_examples(documents)
+        + conversational_label_examples
+        + conversational_section_examples
         + build_label_examples(documents)
         + build_all_section_examples(documents)
         + build_document_examples(documents)
@@ -476,8 +489,8 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
         "qa_pairs": len(qa_examples),
         "qa_paraphrases": len(paraphrase_examples),
         "negative_examples": len(negative_examples),
-        "conversational_label_examples": len(build_conversational_label_examples(documents)),
-        "conversational_section_examples": len(build_all_conversational_section_examples(documents)),
+        "conversational_label_examples": len(conversational_label_examples),
+        "conversational_section_examples": len(conversational_section_examples),
         "total_examples": len(unique_examples),
         "train_examples": len(train),
         "validation_examples": len(validation),

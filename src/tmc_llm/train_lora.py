@@ -44,7 +44,8 @@ def format_messages(tokenizer: AutoTokenizer, messages: list[dict]) -> str:
     for message in messages:
         role = message["role"].upper()
         parts.append(f"{role}: {message['content']}")
-    return "\n".join(parts) + tokenizer.eos_token
+    eos = tokenizer.eos_token or ""
+    return "\n".join(parts) + eos
 
 
 def tokenize_dataset(tokenizer: AutoTokenizer, rows: list[dict], max_length: int) -> Dataset:
@@ -120,10 +121,12 @@ class PromptAwareDataCollator:
         }
 
 
-def pick_dtype() -> torch.dtype:
-    if torch.cuda.is_available():
-        return torch.float16
-    return torch.float32
+def pick_dtype(config: dict) -> torch.dtype:
+    if not torch.cuda.is_available():
+        return torch.float32
+    if config.get("bf16", False):
+        return torch.bfloat16
+    return torch.float16
 
 
 def build_training_arguments(training_kwargs: dict) -> TrainingArguments:
@@ -153,7 +156,7 @@ def train(config_path: Path) -> None:
 
     model = AutoModelForCausalLM.from_pretrained(
         base_model,
-        torch_dtype=pick_dtype(),
+        torch_dtype=pick_dtype(config),
         device_map="auto" if torch.cuda.is_available() else None,
     )
     model.config.use_cache = False
@@ -179,6 +182,15 @@ def train(config_path: Path) -> None:
         load_jsonl(Path(config["dataset_validation"])),
         config["max_seq_length"],
     )
+
+    if len(train_dataset) == 0:
+        raise ValueError(
+            "No training examples survived tokenization. Check data/raw/tmc_sources and max_seq_length in the config."
+        )
+    if len(validation_dataset) == 0:
+        raise ValueError(
+            "No validation examples survived tokenization. Check data/raw/tmc_sources and max_seq_length in the config."
+        )
 
     output_dir = config["output_dir"]
     versioned_dir = output_dir
@@ -233,6 +245,9 @@ def train(config_path: Path) -> None:
         "learning_rate": config["learning_rate"],
         "lora": config["lora"],
         "output_dir": versioned_dir,
+        "train_examples": len(train_dataset),
+        "validation_examples": len(validation_dataset),
+        "max_seq_length": config["max_seq_length"],
     }
     metadata_path = Path(versioned_dir) / "metadata.json"
     metadata_path.parent.mkdir(parents=True, exist_ok=True)

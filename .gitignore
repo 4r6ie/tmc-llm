@@ -14,6 +14,9 @@ models/gguf/*
 external/*
 !external/.gitkeep
 
+# Accidentally nested copy of the repo (locked by a terminal holding it as cwd)
+/tmc-llm/
+
 # Obsidian
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json

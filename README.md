@@ -161,7 +161,7 @@ The base model **TinyLlama/TinyLlama-1.1B-Chat-v1.0** is automatically downloade
 
 Output:
 ```
-models/adapters/tmc-lm-tinyllama-lora/
+models/adapters/tmc-lm-tinyllama-lora-v1.0/
 ```
 
 > **Note**: On CPU-only (e.g., Ryzen 3 2200G), training can be slow. The default config uses small batch sizes.
@@ -174,7 +174,7 @@ models/adapters/tmc-lm-tinyllama-lora/
 
 Output:
 ```
-models/merged/tmc-lm-tinyllama/
+models/merged/tmc-lm-tinyllama-v1.0/
 ```
 
 ### 7. Convert to GGUF using Docker (llama.cpp)
@@ -184,7 +184,7 @@ No need to build llama.cpp on Windows. Use the pre-built Docker image:
 ```powershell
 # Convert merged model to F16 GGUF
 docker run --rm -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
-  python /app/llama.cpp/convert_hf_to_gguf.py /app/models/merged/tmc-lm-tinyllama \
+  python /app/llama.cpp/convert_hf_to_gguf.py /app/models/merged/tmc-lm-tinyllama-v1.0 \
   --outfile /app/models/gguf/tmc-lm-tinyllama-f16.gguf --outtype f16
 
 # Quantize to Q4_K_M (smaller, faster)
@@ -212,7 +212,7 @@ Interactive chat:
 ```powershell
 docker run --rm -it -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
   /app/llama.cpp/build/bin/llama-cli -m /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf \
-  -c 2048 --temp 0.2 --repeat-penalty 1.12 -p "### System: You are TMC-LM, an offline assistant for Trinidad Municipal College. Answer using only official TMC knowledge. If the answer is not available, say so. Be concise and professional. ### User: What is TMC's vision? ### Assistant:"
+  -c 2048 --temp 0.2 --repeat-penalty 1.12 -p "[INST] <<SYS>>You are TMC-LM, an offline assistant for Trinidad Municipal College. Answer using only the provided official TMC knowledge. If the source does not contain the answer, say that the available TMC source does not contain it.<</SYS>>What is TMC's vision?[/INST]"
 ```
 
 Or use the chat template:
@@ -295,8 +295,8 @@ docker run --gpus all -it --rm \
   bash -c "
     python -m tmc_llm.dataset_builder --source-dir /app/data/raw/tmc_sources --output-dir /app/data/processed &&
     python -m tmc_llm.train_lora --config /app/configs/train_lora.yaml &&
-    python -m tmc_llm.merge_lora --base-model TinyLlama/TinyLlama-1.1B-Chat-v1.0 --adapter-dir /app/models/adapters/tmc-lm-tinyllama-lora --output-dir /app/models/merged/tmc-lm-tinyllama &&
-    python /app/external/llama.cpp/convert_hf_to_gguf.py /app/models/merged/tmc-lm-tinyllama --outfile /app/models/gguf/tmc-lm-tinyllama-f16.gguf --outtype f16 &&
+    python -m tmc_llm.merge_lora --base-model TinyLlama/TinyLlama-1.1B-Chat-v1.0 --adapter-dir /app/models/adapters/tmc-lm-tinyllama-lora-v1.0 --output-dir /app/models/merged/tmc-lm-tinyllama-v1.0 &&
+    python /app/external/llama.cpp/convert_hf_to_gguf.py /app/models/merged/tmc-lm-tinyllama-v1.0 --outfile /app/models/gguf/tmc-lm-tinyllama-f16.gguf --outtype f16 &&
     /app/external/llama.cpp/build/bin/llama-quantize /app/models/gguf/tmc-lm-tinyllama-f16.gguf /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf Q4_K_M
   "
 ```
@@ -424,10 +424,14 @@ Key settings:
 base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
 max_seq_length: 768
 num_train_epochs: 5
-max_steps: 80
+max_steps: -1          # -1 = run full epochs (do not cap at a fixed step count)
 per_device_train_batch_size: 1
-gradient_accumulation_steps: 8
+gradient_accumulation_steps: 16
 learning_rate: 0.0002
+lr_scheduler_type: cosine
+weight_decay: 0.01
+fp16: true             # auto-disabled on CPU-only machines
+bf16: false            # T4 (Colab) does not support bf16
 
 lora:
   r: 16

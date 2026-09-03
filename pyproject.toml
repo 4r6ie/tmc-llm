@@ -7,6 +7,25 @@ name = "tmc-llm"
 version = "0.1.0"
 description = "TinyLlama LoRA training scaffold for Trinidad Municipal College knowledge."
 requires-python = ">=3.11,<3.13"
+dependencies = [
+    "accelerate>=0.33.0",
+    "datasets>=2.20.0",
+    "peft>=0.12.0",
+    "PyMuPDF>=1.24.0",
+    "python-docx>=1.1.0",
+    "pyyaml>=6.0.1",
+    "sentencepiece>=0.2.0",
+    "torch>=2.3.0",
+    "transformers>=4.43.0",
+    "openpyxl>=3.1.0",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

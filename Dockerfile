@@ -9,7 +9,7 @@ ENV PYTHONUNBUFFERED=1 \
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3.12 python3.12-venv python3.12-dev \
-    git cmake build-essential \
+    git cmake build-essential tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Set Python 3.12 as default
