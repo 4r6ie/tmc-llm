@@ -3,6 +3,16 @@ __pycache__/
 .pytest_cache/
 *.pyc
 
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Coverage
+.coverage
+htmlcov/
+.coverage.*
+
 data/processed/*
 !data/processed/.gitkeep
 models/adapters/*

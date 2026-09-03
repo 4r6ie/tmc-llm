@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from .text_cleaning import clean_text, compact_spaces
-
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv", ".json"}
 
@@ -23,9 +22,7 @@ def discover_documents(source_dir: Path) -> list[Path]:
         return []
 
     return sorted(
-        path
-        for path in source_dir.rglob("*")
-        if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS
+        path for path in source_dir.rglob("*") if path.is_file() and path.suffix.lower() in SUPPORTED_EXTENSIONS
     )
 
 
@@ -80,11 +77,11 @@ def ocr_page(page: object, index: int) -> str:
     try:
         import pytesseract
         from PIL import Image
-    except ImportError as exc:
+    except ImportError:
         return f"[Page {index}] (OCR unavailable: install pytesseract and Pillow)"
 
     try:
-        pixmap = page.get_pixmap(dpi=200)
+        pixmap = page.get_pixmap(dpi=200)  # type: ignore[attr-defined]
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
         return pytesseract.image_to_string(image)
     except Exception:
@@ -97,7 +94,7 @@ def load_docx(path: Path) -> str:
     except ImportError as exc:
         raise RuntimeError("DOCX loading needs python-docx. Run: python -m pip install python-docx") from exc
 
-    document = Document(path)
+    document = Document(str(path))
     paragraphs = [paragraph.text for paragraph in document.paragraphs if paragraph.text.strip()]
 
     table_rows: list[str] = []
@@ -159,4 +156,3 @@ def flatten_json(value: object, prefix: str = "") -> str:
         lines.append(f"{label}{value}")
 
     return "\n".join(line for line in lines if line.strip())
-

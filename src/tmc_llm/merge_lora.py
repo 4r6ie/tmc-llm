@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any
 
 import torch
 from peft import PeftModel
@@ -10,7 +11,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 def merge_lora(base_model: str, adapter_dir: Path, output_dir: Path) -> None:
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    model = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype=dtype)
+    model: Any = AutoModelForCausalLM.from_pretrained(base_model, torch_dtype=dtype)
     model = PeftModel.from_pretrained(model, adapter_dir)
     merged = model.merge_and_unload()
 
@@ -36,4 +37,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

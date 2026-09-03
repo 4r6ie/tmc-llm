@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-
 MOJIBAKE_REPLACEMENTS = {
     "â€œ": '"',
     "â€": '"',
@@ -31,4 +30,3 @@ def clean_text(text: str) -> str:
 
 def compact_spaces(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
-

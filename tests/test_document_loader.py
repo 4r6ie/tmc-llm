@@ -37,4 +37,3 @@ def test_load_pdf_falls_back_to_ocr_for_blank_page(tmp_path: Path) -> None:
 
     assert "Page 1" in document.text
     assert ("OCR unavailable" in document.text) or ("OCR failed" in document.text)
-

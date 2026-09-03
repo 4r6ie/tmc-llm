@@ -3,7 +3,6 @@ from pathlib import Path
 from tmc_llm.dataset_builder import build_dataset, build_label_examples, extract_label_values, extract_sections
 from tmc_llm.document_loader import LoadedDocument
 
-
 SAMPLE_TEXT = """
 BRIEF HISTORY:
 It started in 1980 when Mr. Paciano Petarco initiated the plan.

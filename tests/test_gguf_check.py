@@ -23,4 +23,3 @@ def test_inspect_gguf_rejects_invalid_header(tmp_path: Path) -> None:
 
     with pytest.raises(GgufCheckError):
         inspect_gguf(bad_file)
-

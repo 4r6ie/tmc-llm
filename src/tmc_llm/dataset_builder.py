@@ -4,13 +4,12 @@ import argparse
 import json
 import random
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 from .document_loader import LoadedDocument, discover_documents, load_documents
 from .text_cleaning import compact_spaces
-
 
 SYSTEM_PROMPT = (
     "You are TMC-LM, an offline assistant for Trinidad Municipal College. "
@@ -29,36 +28,54 @@ SCHOOL_NAME = "Trinidad Municipal College"
 # (question, optional context) — the assistant reply is NEGATIVE_ANSWER, plus any
 # specific office guidance provided in the second element.
 NEGATIVE_QUESTIONS: list[tuple[str, str | None]] = [
-    ("What is the tuition fee for international students at TMC?",
-     "Please contact the Registrar's Office or Accounting Office for details."),
-    ("What is the exact salary of a TMC professor?",
-     "TMC follows the Salary Standardization Table for LGU employees. Please contact the HRMO for details."),
-    ("How many computers does the TMC computer lab have?",
-     "Please contact the IT Department for details."),
-    ("What is the Wi-Fi password at TMC?",
-     "Please ask at the IT Department or Administration Office for Wi-Fi access details."),
-    ("Does TMC have a swimming pool?",
-     "Please contact the Administration Office for information about campus facilities."),
-    ("What is the current enrollment deadline for next semester?",
-     "Please check the TMC website or contact the Registrar's Office for the latest enrollment schedule."),
-    ("Who is the current Registrar of TMC?",
-     "Please contact the Registrar's Office directly for the name of the current Registrar."),
-    ("What programming languages are taught in the BSIT program?",
-     "The program covers programming, networking, database management, and web development. Please contact the College of Computer Studies for specifics."),
-    ("How much is the graduation fee at TMC?",
-     "Please contact the Accounting Office for current fee schedules."),
-    ("What is the student-to-computer ratio at TMC?",
-     "Please contact the College of Computer Studies or IT Department for details."),
-    ("Does TMC offer online classes?",
-     "TMC provides morning, afternoon, and evening class schedules. Please contact the Registrar's Office for current class modalities."),
-    ("What is the address of TMC?",
-     "Please contact the Administration Office for the exact street address."),
-    ("Does TMC have a basketball court?",
-     "TMC has open grounds and sports facilities on campus. Please contact the Administration Office for details."),
-    ("What is the process for filing a grade appeal at TMC?",
-     "Grades are final once recorded and signed by the Department Head. Grade changes require approval from the Department Head and Academic Affairs. Please contact the Registrar's Office for guidance."),
-    ("How many sections per class does TMC have?",
-     "Please contact the Academic Affairs Office for details."),
+    (
+        "What is the tuition fee for international students at TMC?",
+        "Please contact the Registrar's Office or Accounting Office for details.",
+    ),
+    (
+        "What is the exact salary of a TMC professor?",
+        "TMC follows the Salary Standardization Table for LGU employees. Please contact the HRMO for details.",
+    ),
+    ("How many computers does the TMC computer lab have?", "Please contact the IT Department for details."),
+    (
+        "What is the Wi-Fi password at TMC?",
+        "Please ask at the IT Department or Administration Office for Wi-Fi access details.",
+    ),
+    (
+        "Does TMC have a swimming pool?",
+        "Please contact the Administration Office for information about campus facilities.",
+    ),
+    (
+        "What is the current enrollment deadline for next semester?",
+        "Please check the TMC website or contact the Registrar's Office for the latest enrollment schedule.",
+    ),
+    (
+        "Who is the current Registrar of TMC?",
+        "Please contact the Registrar's Office directly for the name of the current Registrar.",
+    ),
+    (
+        "What programming languages are taught in the BSIT program?",
+        "The program covers programming, networking, database management, and web development. Please contact the College of Computer Studies for specifics.",
+    ),
+    ("How much is the graduation fee at TMC?", "Please contact the Accounting Office for current fee schedules."),
+    (
+        "What is the student-to-computer ratio at TMC?",
+        "Please contact the College of Computer Studies or IT Department for details.",
+    ),
+    (
+        "Does TMC offer online classes?",
+        "TMC provides morning, afternoon, and evening class schedules. Please contact the Registrar's Office for current class modalities.",
+    ),
+    ("What is the address of TMC?", "Please contact the Administration Office for the exact street address."),
+    (
+        "Does TMC have a basketball court?",
+        "TMC has open grounds and sports facilities on campus. Please contact the Administration Office for details.",
+    ),
+    (
+        "What is the process for filing a grade appeal at TMC?",
+        "Grades are final once recorded and signed by the Department Head. Grade changes require approval from the Department Head and Academic Affairs. Please contact the Registrar's Office for guidance.",
+    ),
+    ("How many sections per class does TMC have?", "Please contact the Academic Affairs Office for details."),
 ]
 
 
@@ -424,11 +441,7 @@ def collect_source_paths(source: Path | None, source_dir: Path | None) -> list[P
         paths.append(source)
     if source_dir:
         qa_file = source_dir / "tmc_qa.json"
-        paths.extend(
-            path
-            for path in discover_documents(source_dir)
-            if path.resolve() != qa_file.resolve()
-        )
+        paths.extend(path for path in discover_documents(source_dir) if path.resolve() != qa_file.resolve())
 
     seen: set[Path] = set()
     unique_paths: list[Path] = []
@@ -441,7 +454,7 @@ def collect_source_paths(source: Path | None, source_dir: Path | None) -> list[P
     return unique_paths
 
 
-def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None = None) -> dict[str, int]:
+def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None = None) -> dict[str, object]:
     source_paths = collect_source_paths(source, source_dir)
     if not source_paths:
         raise FileNotFoundError("No source documents found. Add official TMC files to data/raw/tmc_sources.")

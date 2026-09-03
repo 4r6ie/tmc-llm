@@ -7,6 +7,7 @@ import logging
 import os
 import warnings
 from pathlib import Path
+from typing import Any
 
 import torch
 import yaml
@@ -36,7 +37,7 @@ def load_jsonl(path: Path) -> list[dict]:
         return [json.loads(line) for line in handle if line.strip()]
 
 
-def format_messages(tokenizer: AutoTokenizer, messages: list[dict]) -> str:
+def format_messages(tokenizer: Any, messages: list[dict]) -> str:
     if getattr(tokenizer, "chat_template", None):
         return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
 
@@ -48,7 +49,7 @@ def format_messages(tokenizer: AutoTokenizer, messages: list[dict]) -> str:
     return "\n".join(parts) + eos
 
 
-def tokenize_dataset(tokenizer: AutoTokenizer, rows: list[dict], max_length: int) -> Dataset:
+def tokenize_dataset(tokenizer: Any, rows: list[dict], max_length: int) -> Dataset:
     samples: list[dict] = []
     for row in rows:
         messages = row["messages"]
@@ -94,7 +95,7 @@ class PromptAwareDataCollator:
     pads input_ids/attention_mask/labels and leaves existing label values alone.
     """
 
-    def __init__(self, tokenizer: AutoTokenizer, pad_to_multiple_of: int | None = None) -> None:
+    def __init__(self, tokenizer: Any, pad_to_multiple_of: int | None = None) -> None:
         self.tokenizer = tokenizer
         self.pad_to_multiple_of = pad_to_multiple_of
 
@@ -132,11 +133,7 @@ def pick_dtype(config: dict) -> torch.dtype:
 def build_training_arguments(training_kwargs: dict) -> TrainingArguments:
     signature = inspect.signature(TrainingArguments)
     supported_keys = set(signature.parameters)
-    filtered_kwargs = {
-        key: value
-        for key, value in training_kwargs.items()
-        if key in supported_keys
-    }
+    filtered_kwargs = {key: value for key, value in training_kwargs.items() if key in supported_keys}
     skipped_keys = sorted(set(training_kwargs) - set(filtered_kwargs))
     if skipped_keys:
         print(f"Skipped unsupported TrainingArguments keys: {', '.join(skipped_keys)}")
@@ -154,7 +151,7 @@ def train(config_path: Path) -> None:
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    model = AutoModelForCausalLM.from_pretrained(
+    model: Any = AutoModelForCausalLM.from_pretrained(
         base_model,
         torch_dtype=pick_dtype(config),
         device_map="auto" if torch.cuda.is_available() else None,
