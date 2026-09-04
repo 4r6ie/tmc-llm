@@ -67,6 +67,8 @@ def load_pdf(path: Path) -> str:
             page_text = page.get_text("text")
             if not page_text.strip() or len(page_text.strip()) < 20:
                 page_text = ocr_page(page, index)
+                if not page_text.strip():
+                    page_text = f"[Page {index}] (OCR failed)"
             if page_text.strip():
                 parts.append(f"[Page {index}]\n{page_text}")
     return "\n\n".join(parts)
