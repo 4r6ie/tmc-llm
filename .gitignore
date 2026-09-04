@@ -1,7 +1,10 @@
 .venv/
 __pycache__/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 *.pyc
+*.egg-info/
 
 # Environment variables / secrets
 .env
@@ -12,6 +15,13 @@ __pycache__/
 .coverage
 htmlcov/
 .coverage.*
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model weight files
+*.safetensors
+*.bin
 
 data/processed/*
 !data/processed/.gitkeep

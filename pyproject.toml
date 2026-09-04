@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "tmc-llm"
 version = "0.1.0"
 description = "TinyLlama LoRA training scaffold for Trinidad Municipal College knowledge."
+license = {text = "Apache-2.0"}
 requires-python = ">=3.11,<3.14"
 dependencies = [
     "accelerate>=0.33.0",
