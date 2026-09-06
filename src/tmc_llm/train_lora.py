@@ -141,7 +141,7 @@ def build_training_arguments(training_kwargs: dict) -> TrainingArguments:
     return TrainingArguments(**filtered_kwargs)
 
 
-def train(config_path: Path) -> None:
+def train(config_path: Path, logdir: Path | None = None) -> None:
     quiet_external_noise()
     config = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     base_model = config["base_model"]
@@ -191,6 +191,8 @@ def train(config_path: Path) -> None:
 
     output_dir = config["output_dir"]
     versioned_dir = output_dir
+    logging_dir = logdir if logdir else Path(config.get("logging_dir", ""))
+
     training_kwargs = {
         "output_dir": versioned_dir,
         "overwrite_output_dir": True,
@@ -211,6 +213,8 @@ def train(config_path: Path) -> None:
         "weight_decay": config.get("weight_decay", 0.0),
         "dataloader_pin_memory": False,
     }
+    if logging_dir:
+        training_kwargs["logging_dir"] = str(logging_dir)
     supported_args = set(inspect.signature(TrainingArguments).parameters)
     if "eval_strategy" in supported_args:
         training_kwargs["eval_strategy"] = "steps"
@@ -256,12 +260,13 @@ def train(config_path: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Fine-tune TinyLlama with LoRA for TMC-LM.")
     parser.add_argument("--config", type=Path, default=Path("configs/train_lora.yaml"))
+    parser.add_argument("--logdir", type=Path, default=None, help="Directory for TensorBoard logs (overrides config).")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    train(args.config)
+    train(args.config, logdir=args.logdir)
 
 
 if __name__ == "__main__":

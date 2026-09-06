@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMC-LM Chat</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem; line-height: 1.5; }
+        .chat-container { height: 500px; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; overflow-y: auto; background: #fafafa; }
+        .message { margin: 0.5rem 0; padding: 0.5rem 0.8rem; border-radius: 12px; max-width: 80%; }
+        .user { background: #e3f2fd; margin-left: auto; text-align: right; }
+        .assistant { background: #e8f5e9; }
+        .input-area { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        input { flex: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+        button { padding: 0 1rem; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .status { padding: 0.5rem; background: #fff3e0; border-radius: 4px; margin-bottom: 1rem; color: #e65100; }
+    </style>
+</head>
+<body>
+    <h2>TMC-LM Offline Assistant</h2>
+    <div class="status" id="status">Loading model...</div>
+    <div class="chat-container" id="chat">
+        <div class="message assistant">Hello! I'm TMC-LM, an offline assistant for Trinidad Municipal College. Ask me about TMC's vision, mission, programs, and other institutional knowledge.</div>
+    </div>
+    <div class="input-area">
+        <input type="text" id="prompt" placeholder="Ask me anything about TMC...">
+        <button id="send" disabled>Send</button>
+    </div>
+
+    <script>
+        const chat = document.getElementById('chat');
+        const input = document.getElementById('prompt');
+        const send = document.getElementById('send');
+        const status = document.getElementById('status');
+
+        let modelsAvailable = false;
+
+        async function checkModel() {
+            const res = await fetch('/api/model-status');
+            const data = await res.json();
+            if (data.found) {
+                modelsAvailable = true;
+                status.style.display = 'none';
+                send.disabled = false;
+            } else {
+                status.innerHTML = `No GGUF model found. <a href="/api/local-inference" target="_blank">See Docker alternative</a>`;
+                status.style.display = 'block';
+                send.disabled = true;
+            }
+        }
+
+        async function sendMessage() {
+            const text = input.value.trim();
+            if (!text || !modelsAvailable) return;
+
+            // Add user message
+            const userMsg = document.createElement('div');
+            userMsg.className = 'message user';
+            userMsg.textContent = 'You: ' + text;
+            chat.appendChild(userMsg);
+
+            // Clear input
+            input.value = '';
+            send.disabled = true;
+            send.textContent = ' Thinking...';
+
+            // Get answer from API
+            const res = await fetch('/api/query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: text })
+            });
+            const data = await res.json();
+
+            // Add assistant message
+            const assistMsg = document.createElement('div');
+            assistMsg.className = 'message assistant';
+            assistMsg.textContent = 'TMC-LM: ' + data.answer;
+            chat.appendChild(assistMsg);
+
+            chat.scrollTop = chat.scrollHeight;
+            send.disabled = false;
+            send.textContent = 'Send';
+        }
+
+        // Events
+        send.addEventListener('click', sendMessage);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Initialize
+        checkModel().then(() => {
+            if (modelsAvailable) status.style.display = 'none';
+        });
+    </script>
+</body>
+</html>

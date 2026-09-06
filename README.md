@@ -8,7 +8,9 @@ This project uses:
 - `data/raw/tmc_sources/train.txt` as the first source institutional knowledge file
 - **TinyLlama/TinyLlama-1.1B-Chat-v1.0** as the base model (auto-downloaded from Hugging Face)
 - LoRA fine-tuning for lightweight local training
-- GGUF conversion via llama.cpp (Docker) for local inference
+- GGUF conversion via llama.cpp (Docker or local) for local inference
+- FastAPI for HTTP API endpoint
+- Web-based chat interface
 
 ## Prerequisites
 
@@ -16,9 +18,10 @@ This project uses:
 
 | Tool | Version | Purpose |
 |------|---------|---------|
-| **Python** | 3.11 or 3.12 | ML dependencies (PyTorch, Transformers) |
+| **Python** | 3.11 or 3.12 | ML dependencies (PyTorch, Transformers, FastAPI) |
 | **Git** | Latest | Clone repository |
 | **Docker** | Latest | Run llama.cpp in Linux container (no Windows build needed) |
+| **uvicorn** | Latest | FastAPI ASGI server for API endpoint |
 
 ### Hardware Recommendations
 
@@ -234,6 +237,33 @@ Expected behavior:
 
 ### Dockerfile for Training + Conversion
 
+### Local Inference (No Docker Required)
+You can run inference locally using a pre-converted GGUF model without Docker:
+
+1. **Convert to GGUF** first (see the Convert to GGUF section), then:
+
+```powershell
+# List available GGUF models
+Get-ChildItem .\models\gguf\
+
+# Run inference with a prompt
+.\scripts\inference.ps1 --prompt "What is TMC's vision?"
+```
+
+Alternatively, use the Python CLI directly:
+
+```powershell
+python -m tmc_llm.cli --prompt "What is TMC's vision?" --ctx-size 2048 --temp 0.2
+```
+
+If no GGUF model is found, the script will print the Docker command you can run instead.
+```
+
+2. **Inference with Docker** (unchanged from below)
+```
+
+### Dockerfile for Training + Conversion
+
 Create a `Dockerfile` in the project root:
 
 ```dockerfile
@@ -313,6 +343,43 @@ docker run --gpus all -it --rm \
 
 ---
 
+## Local Inference (No Docker Required)
+
+You can run inference locally using a pre-converted GGUF model without Docker:
+
+1. **Convert to GGUF** first (see the Convert to GGUF section), then:
+
+```powershell
+# List available GGUF models
+Get-ChildItem .\models\gguf\
+
+# Run inference with a PowerShell script
+.\scripts\inference.ps1 --prompt "What is TMC's vision?"
+```
+
+Alternatively, use the Python CLI directly:
+
+```powershell
+python -m tmc_llm.cli --prompt "What is TMC's vision?" --ctx-size 2048 --temp 0.2
+```
+
+Or use the HTTP API:
+
+```powershell
+# Start the API
+python -m tmc_llm.api
+
+# Then query it
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is TMC\'s vision?"}'
+```
+
+If no GGUF model is found, the script will print the Docker command you can run instead.
+
+2. **Inference with Docker** (unchanged from above)
+```
+
 ## Model Details
 
 ### Base Model
@@ -377,12 +444,15 @@ tmc-llm/
     train_lora.ps1        # Fine-tune with LoRA
     merge_lora.ps1        # Merge LoRA into base model
     check_gguf.ps1        # Validate GGUF file
+    inference.ps1         # Run local GGUF inference (no Docker)
   src/
     tmc_llm/              # Python package
   tests/
   documents.md            # Project reference
   requirements.txt
   Dockerfile              # Docker setup for training + conversion
+  web_chat.html         # Web-based chat interface
+  api.py                # FastAPI HTTP endpoint
 ```
 
 ---
