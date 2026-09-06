@@ -1,0 +1,12 @@
+{
+  "type": "sentencepiece",
+  "vocab_size": 16000,
+  "model_type": "bpe",
+  "special_tokens": {
+    "pad": 0,
+    "unk": 1,
+    "bos": 2,
+    "eos": 3
+  },
+  "system_prompt_prefix": "You are TMC-LM, an offline assistant for Trinidad Municipal College. "
+}
