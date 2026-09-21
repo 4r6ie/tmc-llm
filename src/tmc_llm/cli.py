@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import json
-import os
+import contextlib
 import sys
 from pathlib import Path
-
 
 MODEL_CANDIDATES = [
     Path("./models/gguf/tmc-lm-tinyllama-q4_k_m.gguf"),
@@ -28,28 +26,29 @@ def find_model(model_path: Path | None = None) -> Path | None:
 def run_docker_inference(model_path: Path, prompt: str, ctx_size: int = 2048, temp: float = 0.2) -> None:
     """Print the docker command needed to run inference with the GGUF model."""
     cmd = (
-        "docker run --rm -it -v ${PWD}:/app "
-        f"ghcr.io/ggml-org/llama.cpp:full "
-        f"/app/llama.cpp/build/bin/llama-cli -m {model_path} "
-        f"-c {ctx_size} --temp {temp} --repeat-penalty 1.12 -p \"{prompt}\""
+        "docker run --rm -it -v ${PWD}:/workspace "
+        f"ghcr.io/ggml-org/llama.cpp:full --run "
+        f"-m /workspace/{model_path.as_posix()} "
+        f"-c {ctx_size} --temp {temp} --repeat-penalty 1.12 "
+        f"-p \"{prompt}\""
     )
     print("Run this command (Docker must be running):")
     print(cmd)
 
 
 def run_local_inference(model_path: Path, prompt: str, ctx_size: int = 2048, temp: float = 0.2) -> str:
-    """Try to use llama-cpp Python bindings if available, otherwise fall back to docker command."""
+    """Run inference with llama-cpp Python bindings, falling back to docker if unavailable."""
     try:
         from llama_cpp import Llama
 
         llm = Llama(model_path=str(model_path), n_ctx=ctx_size, verbose=False)
-        system_prompt = "You are TMC-LM, an offline assistant for Trinidad Municipal College. "
-        system_prompt += "Answer using only the provided official TMC knowledge. "
-        system_prompt += "If the source does not contain the answer, say that the available TMC source does not contain it."
-        full_prompt = f"<</SYS>>{system_prompt}User: {prompt}</SYS>>"
 
-        output = llm(full_prompt, max_tokens=512, temperature=temp, stop=[ "<</SYS>>" ])
-        return output["choices"][0]["text"].strip()
+        output = llm.create_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=temp,
+        )
+        return output["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"llama-cpp not available ({e}), falling back to docker command.", file=sys.stderr)
         run_docker_inference(model_path, prompt, ctx_size, temp)
@@ -57,6 +56,9 @@ def run_local_inference(model_path: Path, prompt: str, ctx_size: int = 2048, tem
 
 
 def main() -> None:
+    with contextlib.suppress(Exception):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description="TMC-LM offline inference with GGUF model")
     parser.add_argument("--model", type=Path, default=None, help="Path to GGUF model file")
     parser.add_argument("--prompt", type=str, default="", help="Prompt to send to the model")
