@@ -210,21 +210,20 @@ python -m tmc_llm.gguf_check --path .\models\gguf\tmc-lm-tinyllama-q4_k_m.gguf
 
 ### 9. Run Inference with llama.cpp (Docker)
 
-Interactive chat:
+Interactive chat (conversation mode automatically applies TinyLlama's embedded
+`<|user|>`/`<|assistant|>` chat template, which matches how the model was trained):
 
 ```powershell
 docker run --rm -it -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
   /app/llama.cpp/build/bin/llama-cli -m /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf \
-  -c 2048 --temp 0.2 --repeat-penalty 1.12 -p "[INST] <<SYS>>You are TMC-LM, an offline assistant for Trinidad Municipal College. Answer using only the provided official TMC knowledge. If the source does not contain the answer, say that the available TMC source does not contain it.<</SYS>>What is TMC's vision?[/INST]"
+  -c 2048 --temp 0.2 --repeat-penalty 1.12 -cnv -p "What is TMC's vision?"
 ```
 
-Or use the chat template:
-
-```powershell
-docker run --rm -it -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
-  /app/llama.cpp/build/bin/llama-cli -m /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf \
-  -c 2048 --temp 0.2 --repeat-penalty 1.12 --chat-template llama-2-chat -i
-```
+> **Important**: Do **not** pass `--chat-template llama-2-chat` or an
+> `[INST] <<SYS>>...<</SYS>>...[/INST]` prompt. That is the Llama-2 format, not
+> TinyLlama's. Using it bypasses the template the model was trained with and
+> degrades answer quality. Let llama.cpp apply the template stored in the GGUF
+> file (the default behavior in conversation mode).
 
 Expected behavior:
 - Answers only from official TMC knowledge
@@ -234,33 +233,6 @@ Expected behavior:
 ---
 
 ## Docker Setup (Full Pipeline)
-
-### Dockerfile for Training + Conversion
-
-### Local Inference (No Docker Required)
-You can run inference locally using a pre-converted GGUF model without Docker:
-
-1. **Convert to GGUF** first (see the Convert to GGUF section), then:
-
-```powershell
-# List available GGUF models
-Get-ChildItem .\models\gguf\
-
-# Run inference with a prompt
-.\scripts\inference.ps1 --prompt "What is TMC's vision?"
-```
-
-Alternatively, use the Python CLI directly:
-
-```powershell
-python -m tmc_llm.cli --prompt "What is TMC's vision?" --ctx-size 2048 --temp 0.2
-```
-
-If no GGUF model is found, the script will print the Docker command you can run instead.
-```
-
-2. **Inference with Docker** (unchanged from below)
-```
 
 ### Dockerfile for Training + Conversion
 
@@ -338,7 +310,7 @@ docker run --gpus all -it --rm \
   -v ${PWD}/models:/app/models \
   tmc-llm \
   /app/external/llama.cpp/build/bin/llama-cli -m /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf \
-  -c 2048 --temp 0.2 --repeat-penalty 1.12 --chat-template llama-2-chat -i
+  -c 2048 --temp 0.2 --repeat-penalty 1.12 -cnv -p "What is TMC's vision?"
 ```
 
 ---
@@ -377,8 +349,9 @@ curl -X POST http://localhost:8000/query \
 
 If no GGUF model is found, the script will print the Docker command you can run instead.
 
-2. **Inference with Docker** (unchanged from above)
-```
+2. **Inference with Docker** (see the Docker Setup section above)
+
+---
 
 ## Model Details
 

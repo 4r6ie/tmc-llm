@@ -24,13 +24,18 @@ def find_model(model_path: Path | None = None) -> Path | None:
 
 
 def run_docker_inference(model_path: Path, prompt: str, ctx_size: int = 2048, temp: float = 0.2) -> None:
-    """Print the docker command needed to run inference with the GGUF model."""
+    """Print the docker command needed to run inference with the GGUF model.
+
+    Uses llama-cli conversation mode so the GGUF's embedded chat template
+    (TinyLlama's "<|user|>/<|assistant|>" format) is applied. Passing a raw
+    --completion prompt would skip the template the model was trained with.
+    """
     cmd = (
         "docker run --rm -it -v ${PWD}:/workspace "
-        f"ghcr.io/ggml-org/llama.cpp:full --run "
-        f"-m /workspace/{model_path.as_posix()} "
+        f"ghcr.io/ggml-org/llama.cpp:full "
+        f"/app/llama.cpp/build/bin/llama-cli -m /app/{model_path.as_posix()} "
         f"-c {ctx_size} --temp {temp} --repeat-penalty 1.12 "
-        f"-p \"{prompt}\""
+        f"-cnv -p \"{prompt}\""
     )
     print("Run this command (Docker must be running):")
     print(cmd)

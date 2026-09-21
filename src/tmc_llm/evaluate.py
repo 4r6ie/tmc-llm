@@ -97,7 +97,11 @@ def compute_exact_match(predictions: list[str], references: list[str]) -> float:
     """Compute exact match accuracy (case-insensitive, stripped)."""
     if not predictions:
         return 0.0
-    correct = sum(1 for pred, ref in zip(predictions, references) if pred.strip().lower() == ref.strip().lower())
+    correct = sum(
+        1
+        for pred, ref in zip(predictions, references, strict=False)
+        if pred.strip().lower() == ref.strip().lower()
+    )
     return correct / len(predictions)
 
 
@@ -106,7 +110,7 @@ def compute_keyword_overlap(predictions: list[str], references: list[str]) -> fl
     if not predictions:
         return 0.0
     scores = []
-    for pred, ref in zip(predictions, references):
+    for pred, ref in zip(predictions, references, strict=False):
         pred_words = set(re.findall(r"\w+", pred.lower()))
         ref_words = set(re.findall(r"\w+", ref.lower()))
         if not ref_words:
@@ -123,7 +127,7 @@ def compute_negative_rejection(predictions: list[str], references: list[str]) ->
     if not predictions:
         return 0.0
     rejected = 0
-    for pred, ref in zip(predictions, references):
+    for pred, ref in zip(predictions, references, strict=False):
         is_negative_ref = any(kw in ref.lower() for kw in NEGATIVE_KEYWORDS)
         if is_negative_ref:
             has_rejection = any(kw in pred.lower() for kw in NEGATIVE_KEYWORDS)
@@ -201,7 +205,7 @@ def run_evaluation(
 
     results["predictions_sample"] = [
         {"question": q, "reference": r, "prediction": p}
-        for q, r, p in zip(questions[:5], references[:5], predictions[:5])
+        for q, r, p in zip(questions[:5], references[:5], predictions[:5], strict=False)
     ]
 
     return results

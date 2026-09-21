@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
-
-import pytest
 
 from tmc_llm.incremental_train import get_next_version
 

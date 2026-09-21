@@ -4,7 +4,7 @@ import argparse
 import json
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +39,7 @@ def register_version(
 
     entry: dict[str, Any] = {
         "version": version,
-        "registered_at": datetime.now(timezone.utc).isoformat(),
+        "registered_at": datetime.now(UTC).isoformat(),
         "adapter_dir": str(adapter_dir),
         "description": description,
         "base_version": base_version,
@@ -110,7 +110,7 @@ def promote_version(
 
     entry = data["versions"][version]
     entry["status"] = "promoted"
-    entry["promoted_at"] = datetime.now(timezone.utc).isoformat()
+    entry["promoted_at"] = datetime.now(UTC).isoformat()
 
     if merged_dir and adapter_dir.exists():
         dest = merged_dir / f"tmc-lm-v{version}"

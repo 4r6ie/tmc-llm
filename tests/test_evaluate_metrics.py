@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 from tmc_llm.evaluate import (
@@ -11,7 +8,6 @@ from tmc_llm.evaluate import (
     compute_keyword_overlap,
     compute_negative_rejection,
     extract_qa_pairs,
-    load_jsonl,
 )
 
 

@@ -1,9 +1,13 @@
 import json
-from pathlib import Path
-from src.tmc_llm.train_lora import tokenize_dataset, format_messages, load_jsonl
-from peft import LoraConfig, get_peft_model
-from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer
+
 import torch
+from peft import LoraConfig, get_peft_model
+from src.tmc_llm.train_lora import (
+    PromptAwareDataCollator,
+    build_training_arguments,
+    tokenize_dataset,
+)
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer
 
 # Load base model
 base_model = 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'
@@ -19,7 +23,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model.config.use_cache = False
 
 # Load QA data from tmc_qa.json and convert to conversation format
-with open('data/raw/tmc_sources/tmc_qa.json', 'r', encoding='utf-8') as f:
+with open('data/raw/tmc_sources/tmc_qa.json', encoding='utf-8') as f:
     qa_data = json.load(f)
 
 # Convert to conversation format used in training
@@ -72,14 +76,13 @@ if len(tokenized_dataset) > 0:
     }
 
     # Build training args like train_lora.py does
-    from src.tmc_llm.train_lora import build_training_arguments
     args = build_training_arguments(training_kwargs)
 
     trainer = Trainer(
         model=model,
         args=args,
         train_dataset=tokenized_dataset,
-        data_collator=None,
+        data_collator=PromptAwareDataCollator(tokenizer=tokenizer),
     )
 
     try:

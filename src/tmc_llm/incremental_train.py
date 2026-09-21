@@ -9,7 +9,7 @@ from typing import Any
 
 import torch
 import yaml
-from peft import PeftModel, LoraConfig, get_peft_model
+from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
 
 from .dataset_builder import build_dataset

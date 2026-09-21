@@ -121,10 +121,13 @@ async def local_inference_instructions():
             "See the README for the full Docker workflow.",
             media_type="text/plain",
         )
+    # No --chat-template override: llama.cpp uses the GGUF's embedded chat
+    # template, which is TinyLlama's "<|user|>/<|assistant|>" format and matches
+    # how the model was trained (see configs/train_lora_qa.yaml).
     cmd = (
         "docker run --rm -it -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full "
         f"/app/llama.cpp/build/bin/llama-cli -m {model_path} "
-        "-c 2048 --temp 0.2 --repeat-penalty 1.12 --chat-template llama-2-chat -i"
+        "-c 2048 --temp 0.2 --repeat-penalty 1.12 -i"
     )
     return PlainTextResponse(cmd, media_type="text/plain")
 

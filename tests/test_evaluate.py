@@ -1,6 +1,6 @@
-from pathlib import Path
-
 import json
+from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -94,9 +94,9 @@ class TestTrainDatasetHasContent:
 class TestMissionVisionProgramsCoverage:
     """Verify that the dataset covers key TMC information categories."""
 
-    VISION_KEYWORDS = {"vision", "Vision", "VISION", "purpose", "PURPOSE"}
-    MISSION_KEYWORDS = {"mission", "Mission", "MISSION", "goal", "GOAL"}
-    PROGRAMS_KEYWORDS = {
+    VISION_KEYWORDS: ClassVar[set[str]] = {"vision", "Vision", "VISION", "purpose", "PURPOSE"}
+    MISSION_KEYWORDS: ClassVar[set[str]] = {"mission", "Mission", "MISSION", "goal", "GOAL"}
+    PROGRAMS_KEYWORDS: ClassVar[set[str]] = {
         "program",
         "Program",
         "PROGRAM",
@@ -106,7 +106,7 @@ class TestMissionVisionProgramsCoverage:
         "diploma",
         "Diploma",
     }
-    HISTORY_KEYWORDS = {"history", "History", "HISTORY", "establish", "ESTABLISH"}
+    HISTORY_KEYWORDS: ClassVar[set[str]] = {"history", "History", "HISTORY", "establish", "ESTABLISH"}
 
     def test_vision_coverage(self, train_entries: list[dict]) -> None:
         user_msgs = extract_user_messages(train_entries)
@@ -140,16 +140,20 @@ class TestMissionVisionProgramsCoverage:
 class TestNegativeQuestionsHandling:
     """Test that negative Q&A patterns are properly defined and can be matched."""
 
-    NEGATIVE_QUESTIONS = [
+    NEGATIVE_QUESTIONS: ClassVar[list[tuple[str, str]]] = [
         (
             "What is the tuition fee for international students at TMC?",
             f"{NEGATIVE_ANSWER} Please contact the Registrar's Office or Accounting Office for details.",
         ),
         (
             "What is the exact salary of a TMC professor?",
-            f"{NEGATIVE_ANSWER} TMC follows the Salary Standardization Table for LGU employees. Please contact the HRMO for details.",
+            f"{NEGATIVE_ANSWER} TMC follows the Salary Standardization Table for LGU employees. "
+            "Please contact the HRMO for details.",
         ),
-        ("How many computers does the TMC computer lab have?", f"{NEGATIVE_ANSWER} Please contact the IT Department for details."),
+        (
+            "How many computers does the TMC computer lab have?",
+            f"{NEGATIVE_ANSWER} Please contact the IT Department for details.",
+        ),
         (
             "What is the Wi-Fi password at TMC?",
             f"{NEGATIVE_ANSWER} Please ask at the IT Department or Administration Office for Wi-Fi access details.",
@@ -160,7 +164,8 @@ class TestNegativeQuestionsHandling:
         ),
         (
             "What is the current enrollment deadline for next semester?",
-            f"{NEGATIVE_ANSWER} Please check the TMC website or contact the Registrar's Office for the latest enrollment schedule.",
+            f"{NEGATIVE_ANSWER} Please check the TMC website or contact the Registrar's Office "
+            "for the latest enrollment schedule.",
         ),
         (
             "Who is the current Registrar of TMC?",
@@ -168,7 +173,8 @@ class TestNegativeQuestionsHandling:
         ),
         (
             "What programming languages are taught in the BSIT program?",
-            f"{NEGATIVE_ANSWER} The program covers programming, networking, database management, and web development. Please contact the College of Computer Studies for specifics.",
+            f"{NEGATIVE_ANSWER} The program covers programming, networking, database management, "
+            "and web development. Please contact the College of Computer Studies for specifics.",
         ),
         (
             "How much is the graduation fee at TMC?",
@@ -180,7 +186,8 @@ class TestNegativeQuestionsHandling:
         ),
         (
             "Does TMC offer online classes?",
-            f"{NEGATIVE_ANSWER} TMC provides morning, afternoon, and evening class schedules. Please contact the Registrar's Office for current class modalities.",
+            f"{NEGATIVE_ANSWER} TMC provides morning, afternoon, and evening class schedules. "
+            "Please contact the Registrar's Office for current class modalities.",
         ),
         (
             "What is the address of TMC?",
@@ -188,11 +195,14 @@ class TestNegativeQuestionsHandling:
         ),
         (
             "Does TMC have a basketball court?",
-            f"{NEGATIVE_ANSWER} TMC has open grounds and sports facilities on campus. Please contact the Administration Office for details.",
+            f"{NEGATIVE_ANSWER} TMC has open grounds and sports facilities on campus. "
+            "Please contact the Administration Office for details.",
         ),
         (
             "What is the process for filing a grade appeal at TMC?",
-            f"{NEGATIVE_ANSWER} Grades are final once recorded and signed by the Department Head. Grade changes require approval from the Department Head and Academic Affairs. Please contact the Registrar's Office for guidance.",
+            f"{NEGATIVE_ANSWER} Grades are final once recorded and signed by the Department Head. "
+            "Grade changes require approval from the Department Head and Academic Affairs. "
+            "Please contact the Registrar's Office for guidance.",
         ),
         (
             "How many sections per class does TMC have?",

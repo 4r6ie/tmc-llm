@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
@@ -11,8 +10,6 @@ from tmc_llm.versioning import (
     get_version_info,
     list_versions,
     register_version,
-    save_versions,
-    load_versions,
     set_current_version,
 )
 
