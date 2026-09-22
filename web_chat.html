@@ -65,23 +65,36 @@
             send.disabled = true;
             send.textContent = ' Thinking...';
 
-            // Get answer from API
-            const res = await fetch('/query', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: text })
-            });
-            const data = await res.json();
+            try {
+                // Get answer from API
+                const res = await fetch('/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: text })
+                });
+                const data = await res.json();
 
-            // Add assistant message
-            const assistMsg = document.createElement('div');
-            assistMsg.className = 'message assistant';
-            assistMsg.textContent = 'TMC-LM: ' + data.answer;
-            chat.appendChild(assistMsg);
-
-            chat.scrollTop = chat.scrollHeight;
-            send.disabled = false;
-            send.textContent = 'Send';
+                // Add assistant message
+                const assistMsg = document.createElement('div');
+                assistMsg.className = 'message assistant';
+                if (res.ok) {
+                    assistMsg.textContent = 'TMC-LM: ' + (data.answer || 'Empty answer.');
+                } else {
+                    assistMsg.textContent = 'TMC-LM error: ' + (data.detail || ('HTTP ' + res.status));
+                    assistMsg.style.background = '#ffebee';
+                }
+                chat.appendChild(assistMsg);
+            } catch (err) {
+                const errMsg = document.createElement('div');
+                errMsg.className = 'message assistant';
+                errMsg.textContent = 'Connection error: could not reach the API. Is the server still running?';
+                errMsg.style.background = '#ffebee';
+                chat.appendChild(errMsg);
+            } finally {
+                chat.scrollTop = chat.scrollHeight;
+                send.disabled = false;
+                send.textContent = 'Send';
+            }
         }
 
         // Events

@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import asyncio
+import logging
+import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, cast
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
-from tmc_llm.cli import find_model, run_local_inference
+from tmc_llm.cli import find_model
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -38,10 +44,47 @@ def find_model_path(model_path: Path | None = None) -> Path:
     return found
 
 
+# Cached model + inference lock. llama-cpp is not thread-safe and reloading a
+# multi-GB GGUF per request is far too slow, so the model is loaded once and
+# inference is serialized across requests.
+_MODEL: Any = None
+_MODEL_PATH: Path | None = None
+_INFERENCE_LOCK = threading.Lock()
+
+
+def get_loaded_model(model_path: Path, ctx_size: int) -> Any:
+    """Return the cached Llama instance, loading the GGUF only on first use."""
+    global _MODEL, _MODEL_PATH
+    resolved = model_path.resolve()
+    if _MODEL is None or resolved != _MODEL_PATH:
+        from llama_cpp import Llama
+
+        logger.info("Loading GGUF model: %s (n_ctx=%d)", model_path, ctx_size)
+        _MODEL = Llama(model_path=str(model_path), n_ctx=ctx_size, verbose=False)
+        _MODEL_PATH = resolved
+    return _MODEL
+
+
+def _generate_answer(model_path: Path, prompt: str, ctx_size: int, temp: float) -> str:
+    """Run one synchronous chat completion, serialized across requests."""
+    with _INFERENCE_LOCK:
+        llm = get_loaded_model(model_path, ctx_size)
+        output = llm.create_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=512,
+            temperature=temp,
+        )
+    response = cast(Any, output)
+    content = response["choices"][0]["message"]["content"]
+    return (content or "").strip()
+
+
 class Query(BaseModel):
-    prompt: str = "What is TMC's vision?"
-    ctx_size: int = 2048
-    temp: float = 0.2
+    prompt: str = Field(default="What is TMC's vision?", max_length=2000)
+    # ctx_size allocates KV-cache memory and temp only accepts [0, 2]; reject
+    # out-of-range values (422) instead of clamping silently.
+    ctx_size: int = Field(default=2048, ge=256, le=4096)
+    temp: float = Field(default=0.2, ge=0.0, le=2.0)
 
 
 class Answer(BaseModel):
@@ -69,19 +112,22 @@ async def query(request: Query) -> Answer | JSONResponse:
 
     prompt = request.prompt if request.prompt.strip() else "What is TMC's vision?"
 
+    # Blocking CPU inference must not run on the event loop thread.
+    loop = asyncio.get_running_loop()
     try:
-        answer = run_local_inference(model_path, prompt, request.ctx_size, request.temp)
-        if not answer.strip():
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "detail": "Local inference could not load the model (llama-cpp missing). "
-                    "See /api/local-inference for the Docker command instead."
-                },
-            )
-        return Answer(answer=answer)
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+        answer = await loop.run_in_executor(None, _generate_answer, model_path, prompt, request.ctx_size, request.temp)
+    except ImportError:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "detail": "llama-cpp-python is not installed on the server. "
+                "See /api/local-inference for the Docker command instead."
+            },
+        )
+    except Exception:
+        logger.exception("Inference failed")
+        return JSONResponse(status_code=500, content={"detail": "Inference failed. Check the server logs."})
+    return Answer(answer=answer)
 
 
 @app.get("/chat")
