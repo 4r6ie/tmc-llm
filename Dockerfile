@@ -18,15 +18,15 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 \
 
 WORKDIR /app
 
-# Copy requirements first for better caching
+# Copy package metadata and source first so the editable install inside
+# requirements.txt (-e .[local]) can resolve the project itself
+COPY pyproject.toml ./
+COPY src ./src
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy project
+# Copy the rest of the project
 COPY . .
-
-# Install package in development mode
-RUN pip install -e .
 
 # Clone and build llama.cpp for GGUF conversion
 RUN git clone https://github.com/ggml-org/llama.cpp /app/external/llama.cpp \

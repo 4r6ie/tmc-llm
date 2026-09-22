@@ -16,6 +16,10 @@ warmup_steps: 10
 logging_steps: 10
 save_steps: 50
 eval_steps: 50
+# Keep the checkpoint with the lowest validation loss, not just the last one
+load_best_model_at_end: true
+metric_for_best_model: eval_loss
+greater_is_better: false
 lr_scheduler_type: cosine
 weight_decay: 0.01
 

@@ -128,8 +128,16 @@ Enable WSL 2 backend and Ubuntu integration in Docker Desktop settings.
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
+
+# CPU-only machine? Install the much smaller CPU-only PyTorch build first:
+# python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# Runtime + training dependencies (canonical list lives in pyproject.toml;
+# the "local" extra adds llama-cpp-python for GGUF inference)
 python -m pip install -r requirements.txt
-python -m pip install -e .
+
+# Dev tooling (pytest, ruff, mypy) — needed to run the test suite
+python -m pip install -e ".[dev]"
 ```
 
 ### 4. Prepare Dataset
@@ -185,15 +193,11 @@ models/merged/tmc-lm-tinyllama-v1.0/
 No need to build llama.cpp on Windows. Use the pre-built Docker image:
 
 ```powershell
-# Convert merged model to F16 GGUF
-docker run --rm -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
-  python /app/llama.cpp/convert_hf_to_gguf.py /app/models/merged/tmc-lm-tinyllama-v1.0 \
-  --outfile /app/models/gguf/tmc-lm-tinyllama-f16.gguf --outtype f16
+# Convert merged model to F16 GGUF (--convert is the :full image's tools.sh entrypoint)
+docker run --rm -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full --convert /app/models/merged/tmc-lm-tinyllama-v1.0 --outfile /app/models/gguf/tmc-lm-tinyllama-f16.gguf
 
 # Quantize to Q4_K_M (smaller, faster)
-docker run --rm -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
-  /app/llama.cpp/build/bin/llama-quantize /app/models/gguf/tmc-lm-tinyllama-f16.gguf \
-  /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf Q4_K_M
+docker run --rm -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full --quantize /app/models/gguf/tmc-lm-tinyllama-f16.gguf /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf Q4_K_M
 ```
 
 Output:
@@ -214,9 +218,7 @@ Interactive chat (conversation mode automatically applies TinyLlama's embedded
 `<|user|>`/`<|assistant|>` chat template, which matches how the model was trained):
 
 ```powershell
-docker run --rm -it -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full \
-  /app/llama.cpp/build/bin/llama-cli -m /app/models/gguf/tmc-lm-tinyllama-q4_k_m.gguf \
-  -c 2048 --temp 0.2 --repeat-penalty 1.12 -cnv -p "What is TMC's vision?"
+docker run --rm -it -v ${PWD}/models:/models ghcr.io/ggml-org/llama.cpp:light -m /models/gguf/tmc-lm-tinyllama-q4_k_m.gguf -c 2048 --temp 0.2 --repeat-penalty 1.12 -cnv -p "What is TMC's vision?"
 ```
 
 > **Important**: Do **not** pass `--chat-template llama-2-chat` or an
@@ -317,7 +319,13 @@ docker run --gpus all -it --rm \
 
 ## Local Inference (No Docker Required)
 
-You can run inference locally using a pre-converted GGUF model without Docker:
+You can run inference locally using a pre-converted GGUF model without Docker.
+This requires the optional `local` extra (llama-cpp-python), which is already
+installed if you set up via `requirements.txt`:
+
+```powershell
+python -m pip install -e ".[local]"
+```
 
 1. **Convert to GGUF** first (see the Convert to GGUF section), then:
 

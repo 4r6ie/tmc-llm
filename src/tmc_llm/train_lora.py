@@ -206,6 +206,11 @@ def train(config_path: Path, logdir: Path | None = None) -> None:
         "save_steps": config["save_steps"],
         "eval_steps": config["eval_steps"],
         "save_total_limit": 2,
+        # Optionally keep the checkpoint with the best validation loss instead
+        # of simply the last one (requires eval_steps/save_steps alignment).
+        "load_best_model_at_end": bool(config.get("load_best_model_at_end", False)),
+        "metric_for_best_model": config.get("metric_for_best_model", "eval_loss"),
+        "greater_is_better": bool(config.get("greater_is_better", False)),
         "report_to": [],
         "fp16": bool(config.get("fp16", False)) and torch.cuda.is_available(),
         "bf16": bool(config.get("bf16", False)) and torch.cuda.is_available(),

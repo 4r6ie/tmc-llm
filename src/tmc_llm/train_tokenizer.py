@@ -78,9 +78,7 @@ def save_tokenizer_metadata(output_dir: Path, vocab_size: int, model_type: str) 
         },
         "system_prompt_prefix": SYSTEM_PROMPT_PREFIX,
     }
-    (output_dir / "tokenizer_metadata.json").write_text(
-        json.dumps(metadata, indent=2), encoding="utf-8"
-    )
+    (output_dir / "tokenizer_metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
 
 
 def run_training(

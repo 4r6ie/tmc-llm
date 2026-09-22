@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 MODEL_CANDIDATES = [
     Path("./models/gguf/tmc-lm-tinyllama-q4_k_m.gguf"),
@@ -26,16 +27,21 @@ def find_model(model_path: Path | None = None) -> Path | None:
 def run_docker_inference(model_path: Path, prompt: str, ctx_size: int = 2048, temp: float = 0.2) -> None:
     """Print the docker command needed to run inference with the GGUF model.
 
-    Uses llama-cli conversation mode so the GGUF's embedded chat template
-    (TinyLlama's "<|user|>/<|assistant|>" format) is applied. Passing a raw
-    --completion prompt would skip the template the model was trained with.
+    Uses the llama.cpp "light" image, where llama-cli is the container
+    entrypoint, and conversation mode so the GGUF's embedded chat template
+    is applied. Passing a raw --completion prompt would skip the template
+    the model was trained with.
     """
+    # Mount the model file's own directory so the command works for any model
+    # path, not just files under ./models/gguf.
+    models_dir = model_path.resolve().parent
     cmd = (
-        "docker run --rm -it -v ${PWD}:/workspace "
-        f"ghcr.io/ggml-org/llama.cpp:full "
-        f"/app/llama.cpp/build/bin/llama-cli -m /app/{model_path.as_posix()} "
+        "docker run --rm -it "
+        f'-v "{models_dir}:/models" '
+        "ghcr.io/ggml-org/llama.cpp:light "
+        f"-m /models/{model_path.name} "
         f"-c {ctx_size} --temp {temp} --repeat-penalty 1.12 "
-        f"-cnv -p \"{prompt}\""
+        f'-cnv -p "{prompt}"'
     )
     print("Run this command (Docker must be running):")
     print(cmd)
@@ -45,24 +51,25 @@ def run_local_inference(model_path: Path, prompt: str, ctx_size: int = 2048, tem
     """Run inference with llama-cpp Python bindings, falling back to docker if unavailable."""
     try:
         from llama_cpp import Llama
-
-        llm = Llama(model_path=str(model_path), n_ctx=ctx_size, verbose=False)
-
-        output = llm.create_chat_completion(
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=512,
-            temperature=temp,
-        )
-        return output["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        print(f"llama-cpp not available ({e}), falling back to docker command.", file=sys.stderr)
+    except ImportError:
+        print("llama-cpp-python is not installed. Install it with: pip install llama-cpp-python", file=sys.stderr)
         run_docker_inference(model_path, prompt, ctx_size, temp)
         return ""
+
+    llm = Llama(model_path=str(model_path), n_ctx=ctx_size, verbose=False)
+    output = llm.create_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=512,
+        temperature=temp,
+    )
+    response = cast(Any, output)
+    content = response["choices"][0]["message"]["content"]
+    return content.strip() if content else ""
 
 
 def main() -> None:
     with contextlib.suppress(Exception):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        cast(Any, sys.stdout).reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(description="TMC-LM offline inference with GGUF model")
     parser.add_argument("--model", type=Path, default=None, help="Path to GGUF model file")

@@ -153,7 +153,7 @@ def incremental_train(
         data_collator=PromptAwareDataCollator(tokenizer=tokenizer),
     )
     trainer.train()
-    trainer.save_model(new_output_dir)
+    trainer.save_model(str(new_output_dir))
     tokenizer.save_pretrained(new_output_dir)
 
     result_metadata = {

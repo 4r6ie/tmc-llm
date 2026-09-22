@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from tmc_llm.dataset_builder import build_dataset, build_label_examples, extract_label_values, extract_sections
@@ -75,3 +76,58 @@ def test_build_dataset_from_source_folder(tmp_path: Path) -> None:
 
     assert metadata["source_files"] == [str(source)]
     assert metadata["total_examples"] >= 9
+
+
+def _load_split_sources(path: Path) -> list[str]:
+    with path.open(encoding="utf-8") as handle:
+        return [json.loads(line)["source"] for line in handle if line.strip()]
+
+
+def test_paraphrases_stay_in_the_same_split_as_their_base_example(tmp_path: Path) -> None:
+    """Regression test: a QA paraphrase must never cross the train/validation/test boundary."""
+    source_dir = tmp_path / "sources"
+    output_dir = tmp_path / "processed"
+    source_dir.mkdir()
+    (source_dir / "manual.txt").write_text(SAMPLE_TEXT, encoding="utf-8")
+    (source_dir / "tmc_qa.json").write_text(
+        json.dumps(
+            [
+                {
+                    "question": "What is the vision of TMC?",
+                    "answer": "A model institution with fully developed academic programs.",
+                },
+                {
+                    "question": "What is the mission of TMC?",
+                    "answer": "To build well-trained, competent and employable professionals.",
+                },
+                {
+                    "question": "When was TMC founded?",
+                    "answer": "It started in 1980 and was registered with the SEC in 1985.",
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    build_dataset(None, output_dir, source_dir)
+
+    split_sources = {
+        "train": _load_split_sources(output_dir / "train.jsonl"),
+        "validation": _load_split_sources(output_dir / "validation.jsonl"),
+        "test": _load_split_sources(output_dir / "test.jsonl"),
+    }
+
+    def base_source(source: str) -> str:
+        return source.rsplit(":paraphrase:", 1)[0]
+
+    location: dict[str, str] = {}
+    for split_name, sources in split_sources.items():
+        for source in sources:
+            base = base_source(source)
+            assert location.get(base, split_name) == split_name, (
+                f"{source} is in {split_name} but its base example is in {location.get(base)}"
+            )
+            location[base] = split_name
+
+    # Sanity check: the QA input actually produced paraphrases somewhere
+    assert any(":paraphrase:" in source for sources in split_sources.values() for source in sources)

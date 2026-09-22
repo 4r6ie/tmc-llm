@@ -340,19 +340,55 @@ def build_document_examples(documents: list[LoadedDocument]) -> list[Example]:
     return examples
 
 
-def split_examples(examples: list[Example], seed: int = 42) -> tuple[list[Example], list[Example], list[Example]]:
-    shuffled = list(examples)
-    random.Random(seed).shuffle(shuffled)
+def example_group(source: str) -> str:
+    """Identity of the underlying fact an example was generated from.
 
-    total = len(shuffled)
+    Paraphrases share their base example's group; question-template variants
+    (e.g. several phrasings of one label) share the same source already.
+    Keeping a group within a single split prevents near-duplicate questions
+    from leaking between train and evaluation sets.
+    """
+    return source.rsplit(":paraphrase:", 1)[0]
+
+
+def split_examples_by_group(
+    examples: list[Example], seed: int = 42
+) -> tuple[list[Example], list[Example], list[Example]]:
+    """Split examples into train/validation/test without splitting any group.
+
+    All examples derived from the same fact (same source, including all of its
+    paraphrases and question-template variants) land in exactly one split.
+    Targets are ~70/15/15 of *examples*; groups are assigned whole, so a group
+    is never cut in half at a bucket boundary.
+    """
+    groups: dict[str, list[Example]] = {}
+    for example in examples:
+        groups.setdefault(example_group(example.source), []).append(example)
+
+    keys = sorted(groups)
+    random.Random(seed).shuffle(keys)
+
+    total = len(examples)
     validation_size = max(1, round(total * 0.15))
     test_size = max(1, round(total * 0.15))
     train_size = max(1, total - validation_size - test_size)
+    targets = [train_size, validation_size, test_size]
 
-    train = shuffled[:train_size]
-    validation = shuffled[train_size : train_size + validation_size]
-    test = shuffled[train_size + validation_size :]
-    return train, validation, test
+    buckets: tuple[list[Example], list[Example], list[Example]] = ([], [], [])
+    bucket_index = 0
+    bucket_count = 0
+    for key in keys:
+        group = groups[key]
+        # Move to the next bucket when adding this whole group would overshoot
+        # the target (but only if the current bucket is not empty, so tiny
+        # datasets still get non-empty train/validation splits).
+        if bucket_index < len(targets) - 1 and bucket_count > 0 and bucket_count + len(group) > targets[bucket_index]:
+            bucket_index += 1
+            bucket_count = 0
+        buckets[bucket_index].extend(group)
+        bucket_count += len(group)
+
+    return buckets
 
 
 def write_jsonl(path: Path, rows: Iterable[dict]) -> None:
@@ -465,14 +501,12 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
 
     qa_path = source_dir / "tmc_qa.json" if source_dir else Path("data/raw/tmc_sources/tmc_qa.json")
     qa_examples = load_qa_pairs(qa_path) if qa_path.exists() else []
-    paraphrase_examples = build_paraphrase_examples(qa_examples)
     negative_examples = build_negative_examples()
     conversational_label_examples = build_conversational_label_examples(documents)
     conversational_section_examples = build_all_conversational_section_examples(documents)
 
     examples = (
         qa_examples
-        + paraphrase_examples
         + negative_examples
         + conversational_label_examples
         + conversational_section_examples
@@ -489,9 +523,30 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
             seen.add(key)
             unique_examples.append(example)
 
-    train, validation, test = split_examples(unique_examples)
+    # Split by fact group BEFORE paraphrasing: paraphrases and question-template
+    # variants of one fact must never span the train and validation/test splits,
+    # otherwise evaluation is graded on near-duplicates of training data (leakage).
+    base_train, base_validation, base_test = split_examples_by_group(unique_examples)
 
-    write_jsonl(output_dir / "dataset.jsonl", (example.to_json() for example in unique_examples))
+    def augment_with_paraphrases(subset: list[Example]) -> tuple[list[Example], list[Example]]:
+        """Add paraphrases of this split's own QA pairs (deduped against all examples)."""
+        qa_only = [example for example in subset if example.source.startswith("qa:")]
+        paraphrased: list[Example] = []
+        for example in build_paraphrase_examples(qa_only):
+            key = (example.user, example.assistant)
+            if key not in seen:
+                seen.add(key)
+                paraphrased.append(example)
+        return subset + paraphrased, paraphrased
+
+    train, train_paraphrases = augment_with_paraphrases(base_train)
+    validation, validation_paraphrases = augment_with_paraphrases(base_validation)
+    test, test_paraphrases = augment_with_paraphrases(base_test)
+
+    paraphrase_count = len(train_paraphrases) + len(validation_paraphrases) + len(test_paraphrases)
+    all_examples = train + validation + test
+
+    write_jsonl(output_dir / "dataset.jsonl", (example.to_json() for example in all_examples))
     write_jsonl(output_dir / "train.jsonl", (example.to_json() for example in train))
     write_jsonl(output_dir / "validation.jsonl", (example.to_json() for example in validation))
     write_jsonl(output_dir / "test.jsonl", (example.to_json() for example in test))
@@ -500,11 +555,11 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
     metadata = {
         "source_files": [str(document.path) for document in documents],
         "qa_pairs": len(qa_examples),
-        "qa_paraphrases": len(paraphrase_examples),
+        "qa_paraphrases": paraphrase_count,
         "negative_examples": len(negative_examples),
         "conversational_label_examples": len(conversational_label_examples),
         "conversational_section_examples": len(conversational_section_examples),
-        "total_examples": len(unique_examples),
+        "total_examples": len(all_examples),
         "train_examples": len(train),
         "validation_examples": len(validation),
         "test_examples": len(test),

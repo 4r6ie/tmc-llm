@@ -1,14 +1,4 @@
-accelerate>=0.33.0
-datasets>=2.20.0
-peft>=0.12.0
-PyMuPDF>=1.24.0
-python-docx>=1.1.0
-pyyaml>=6.0.1
-sentencepiece>=0.2.0
-fastapi>=0.100.0
-uvicorn[standard]>=0.27.0
-torch>=2.3.0
-transformers>=4.43.0
-openpyxl>=3.1.0
-pytesseract>=0.3.10
-Pillow>=10.0.0
+# Convenience shim — the canonical dependency list lives in pyproject.toml.
+# The "local" extra adds llama-cpp-python for GGUF inference
+# (python -m tmc_llm.cli / python -m tmc_llm.api).
+-e .[local]

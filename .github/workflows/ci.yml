@@ -18,7 +18,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install ruff
+      # Pinned to the version used locally so formatting stays deterministic
+      - run: pip install "ruff==0.16.5"
       - run: ruff check src/ tests/
       - run: ruff format --check src/ tests/
 
@@ -30,7 +31,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install mypy
+      - run: pip install "mypy>=2.0,<3"
+      # Install the package itself (without heavy deps) so first-party imports resolve
+      - run: pip install --no-deps -e .
       - run: mypy src/
 
   test:
@@ -42,6 +45,5 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt
-      - run: pip install -e ".[dev]"
+      - run: pip install -e ".[local,dev]"
       - run: python -m pytest -ra --strict-markers --tb=short

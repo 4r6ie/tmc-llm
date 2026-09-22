@@ -82,9 +82,9 @@ class TestTrainDatasetHasContent:
         assert len(train_entries) > 0, "train.jsonl should contain entries"
 
     def test_train_has_system_prompt(self, train_entries: list[dict]) -> None:
-        assert all(
-            msg.get("role") == "system" for msg in train_entries[0].get("messages", [])[:1]
-        ), "Entries should start with system prompt"
+        assert all(msg.get("role") == "system" for msg in train_entries[0].get("messages", [])[:1]), (
+            "Entries should start with system prompt"
+        )
 
     def test_train_user_messages_exist(self, train_entries: list[dict]) -> None:
         messages = extract_user_messages(train_entries)
@@ -110,30 +110,22 @@ class TestMissionVisionProgramsCoverage:
 
     def test_vision_coverage(self, train_entries: list[dict]) -> None:
         user_msgs = extract_user_messages(train_entries)
-        has_vision = any(
-            any(kw in content for kw in self.VISION_KEYWORDS) for content in user_msgs
-        )
+        has_vision = any(any(kw in content for kw in self.VISION_KEYWORDS) for content in user_msgs)
         assert has_vision, "Expected vision-related content in training data"
 
     def test_mission_coverage(self, train_entries: list[dict]) -> None:
         user_msgs = extract_user_messages(train_entries)
-        has_mission = any(
-            any(kw in content for kw in self.MISSION_KEYWORDS) for content in user_msgs
-        )
+        has_mission = any(any(kw in content for kw in self.MISSION_KEYWORDS) for content in user_msgs)
         assert has_mission, "Expected mission-related content in training data"
 
     def test_programs_coverage(self, train_entries: list[dict]) -> None:
         user_msgs = extract_user_messages(train_entries)
-        has_programs = any(
-            any(kw in content for kw in self.PROGRAMS_KEYWORDS) for content in user_msgs
-        )
+        has_programs = any(any(kw in content for kw in self.PROGRAMS_KEYWORDS) for content in user_msgs)
         assert has_programs, "Expected program-related content in training data"
 
     def test_history_coverage(self, train_entries: list[dict]) -> None:
         user_msgs = extract_user_messages(train_entries)
-        has_history = any(
-            any(kw in content for kw in self.HISTORY_KEYWORDS) for content in user_msgs
-        )
+        has_history = any(any(kw in content for kw in self.HISTORY_KEYWORDS) for content in user_msgs)
         assert has_history, "Expected history-related content in training data"
 
 

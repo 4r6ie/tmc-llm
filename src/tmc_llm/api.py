@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,11 +8,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
-from tmc_llm.cli import run_local_inference
+from tmc_llm.cli import find_model, run_local_inference
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Log a warning if no GGUF model is found; the API still starts."""
     if find_model_path_if_exists() is None:
         print(
@@ -24,27 +25,17 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="TMC-LM API", description="Offline TMC knowledge assistant API", lifespan=lifespan)
 
-MODEL_CANDIDATES = [
-    Path("./models/gguf/tmc-lm-tinyllama-q4_k_m.gguf"),
-    Path("./models/gguf/tmc-lm-tinyllama-f16.gguf"),
-    Path("./models/gguf/tmc-lm-tinyllama-f32.gguf"),
-]
-
 WEB_UI_PATH = Path(__file__).resolve().parent.parent.parent / "web_chat.html"
 
 
 def find_model_path(model_path: Path | None = None) -> Path:
-    if model_path:
-        p = Path(model_path)
-        if p.exists():
-            return p
-    for cand in MODEL_CANDIDATES:
-        if cand.exists():
-            return cand
-    raise HTTPException(
-        status_code=500,
-        detail="No GGUF model found. Please run the training pipeline first or provide a valid --model path.",
-    )
+    found = find_model(model_path)
+    if found is None:
+        raise HTTPException(
+            status_code=500,
+            detail="No GGUF model found. Please run the training pipeline first or provide a valid --model path.",
+        )
+    return found
 
 
 class Query(BaseModel):
@@ -58,7 +49,7 @@ class Answer(BaseModel):
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     """Health check endpoint."""
     model_path = find_model_path()
     return {
@@ -69,7 +60,7 @@ async def root():
 
 
 @app.post("/query", response_model=Answer)
-async def query(request: Query):
+async def query(request: Query) -> Answer | JSONResponse:
     """Run inference with the GGUF model and return the answer."""
     try:
         model_path = find_model_path()
@@ -88,46 +79,51 @@ async def query(request: Query):
                     "See /api/local-inference for the Docker command instead."
                 },
             )
-        return {"answer": answer}
+        return Answer(answer=answer)
     except Exception as e:
         return JSONResponse(status_code=500, content={"detail": str(e)})
 
 
 @app.get("/chat")
-async def chat():
+async def chat() -> FileResponse:
     """Serve the web-based chat interface."""
     return FileResponse(WEB_UI_PATH)
 
 
 @app.get("/favicon.ico")
-async def favicon():
+async def favicon() -> Response:
     """Suppress favicon 404 noise in the logs."""
     return Response(status_code=204)
 
 
 @app.get("/api/model-status")
-async def model_status():
+async def model_status() -> dict[str, bool]:
     """Report whether a GGUF model is available for inference."""
     return {"found": find_model_path_if_exists() is not None}
 
 
 @app.get("/api/local-inference")
-async def local_inference_instructions():
+async def local_inference_instructions() -> PlainTextResponse:
     """Print the docker command needed to run local inference."""
     model_path = find_model_path_if_exists()
     if model_path is None:
         return PlainTextResponse(
-            "No GGUF model found. Please run the training pipeline first. "
-            "See the README for the full Docker workflow.",
+            "No GGUF model found. Please run the training pipeline first. See the README for the full Docker workflow.",
             media_type="text/plain",
         )
-    # No --chat-template override: llama.cpp uses the GGUF's embedded chat
-    # template, which is TinyLlama's "<|user|>/<|assistant|>" format and matches
-    # how the model was trained (see configs/train_lora_qa.yaml).
+    # The llama.cpp "light" image exposes llama-cli as its entrypoint (there is
+    # no /app/llama.cpp inside the image) and conversation mode (-cnv) applies
+    # the GGUF's embedded TinyLlama chat template, which matches how the model
+    # was trained (see configs/train_lora_qa.yaml).
+    # Mount the model file's own directory so the command works for any model
+    # path, not just files under ./models/gguf.
+    models_dir = model_path.resolve().parent
     cmd = (
-        "docker run --rm -it -v ${PWD}:/app ghcr.io/ggml-org/llama.cpp:full "
-        f"/app/llama.cpp/build/bin/llama-cli -m {model_path} "
-        "-c 2048 --temp 0.2 --repeat-penalty 1.12 -i"
+        "docker run --rm -it "
+        f'-v "{models_dir}:/models" '
+        "ghcr.io/ggml-org/llama.cpp:light "
+        f"-m /models/{model_path.name} "
+        "-c 2048 --temp 0.2 --repeat-penalty 1.12 -cnv"
     )
     return PlainTextResponse(cmd, media_type="text/plain")
 

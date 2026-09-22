@@ -10,13 +10,9 @@ from typing import Any
 
 import torch
 
-logger = logging.getLogger(__name__)
+from tmc_llm.dataset_builder import SYSTEM_PROMPT
 
-SYSTEM_PROMPT = (
-    "You are TMC-LM, an offline assistant for Trinidad Municipal College. "
-    "Answer using only the provided official TMC knowledge. "
-    "If the source does not contain the answer, say that the available TMC source does not contain it."
-)
+logger = logging.getLogger(__name__)
 
 NEGATIVE_KEYWORDS = [
     "does not contain this information",
@@ -86,7 +82,7 @@ def generate_predictions(
                 pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id,
             )
 
-        new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
+        new_tokens = output_ids[0][inputs["input_ids"].shape[1] :]
         response = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
         predictions.append(response)
 
@@ -98,9 +94,7 @@ def compute_exact_match(predictions: list[str], references: list[str]) -> float:
     if not predictions:
         return 0.0
     correct = sum(
-        1
-        for pred, ref in zip(predictions, references, strict=False)
-        if pred.strip().lower() == ref.strip().lower()
+        1 for pred, ref in zip(predictions, references, strict=False) if pred.strip().lower() == ref.strip().lower()
     )
     return correct / len(predictions)
 
@@ -221,7 +215,7 @@ def load_model_for_eval(base_model: str, adapter_dir: Path | None = None) -> tup
         tokenizer.pad_token = tokenizer.eos_token
 
     dtype = torch.float16 if torch.cuda.is_available() else torch.float32
-    model = AutoModelForCausalLM.from_pretrained(
+    model: Any = AutoModelForCausalLM.from_pretrained(
         base_model,
         torch_dtype=dtype,
         device_map="auto" if torch.cuda.is_available() else None,

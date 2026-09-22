@@ -31,6 +31,8 @@ models/merged/*
 !models/merged/.gitkeep
 models/gguf/*
 !models/gguf/.gitkeep
+models/tokenizer/*
+!models/tokenizer/.gitkeep
 external/*
 !external/.gitkeep
 
