@@ -6,6 +6,8 @@ import sys
 from pathlib import Path
 from typing import Any, cast
 
+from tmc_llm.versioning import get_current_gguf
+
 MODEL_CANDIDATES = [
     Path("./models/gguf/tmc-lm-tinyllama-q4_k_m.gguf"),
     Path("./models/gguf/tmc-lm-tinyllama-f16.gguf"),
@@ -18,6 +20,10 @@ def find_model(model_path: Path | None = None) -> Path | None:
         p = Path(model_path)
         if p.exists():
             return p
+    # Prefer the GGUF registered as the current model version (models/versions.json)
+    registered = get_current_gguf()
+    if registered is not None:
+        return registered
     for cand in MODEL_CANDIDATES:
         if cand.exists():
             return cand

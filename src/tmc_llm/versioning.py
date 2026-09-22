@@ -80,6 +80,37 @@ def get_version_info(version: str, versions_path: Path | None = None) -> dict[st
     return data["versions"].get(version)
 
 
+def get_current_gguf(versions_path: Path | None = None) -> Path | None:
+    """Return the GGUF file of the current model version, if one is registered.
+
+    Prefers quantized builds (q4_k_m) over larger ones so the served model is
+    the fast one. An unreadable registry or missing files fall back to None so
+    callers can use their own candidate list.
+    """
+    vp = versions_path or Path(VERSIONS_FILE)
+    try:
+        data = load_versions(vp)
+        current = data.get("current")
+        if not current:
+            return None
+        entry = data["versions"].get(current) or {}
+        gguf_dir = entry.get("gguf_dir")
+        if not gguf_dir:
+            return None
+        path = Path(gguf_dir)
+        if path.is_file():
+            return path
+        if path.is_dir():
+            ggufs = sorted(path.glob("*.gguf"))
+            if not ggufs:
+                return None
+            quantized = [candidate for candidate in ggufs if "q4_k_m" in candidate.name.lower()]
+            return (quantized or ggufs)[0]
+    except (OSError, ValueError, KeyError):
+        return None
+    return None
+
+
 def delete_version(version: str, versions_path: Path | None = None) -> bool:
     """Remove a version from the registry (does not delete files)."""
     vp = versions_path or Path(VERSIONS_FILE)
@@ -146,6 +177,8 @@ def parse_args() -> argparse.Namespace:
     prom = sub.add_parser("promote", help="Promote version to production")
     prom.add_argument("--version", required=True)
     prom.add_argument("--adapter-dir", type=Path, required=True)
+    prom.add_argument("--merged-dir", type=Path, default=None, help="Directory to copy the merged model into.")
+    prom.add_argument("--gguf-dir", type=Path, default=None, help="GGUF file or directory to register for serving.")
 
     dele = sub.add_parser("delete", help="Remove a version from registry")
     dele.add_argument("--version", required=True)
@@ -169,7 +202,7 @@ def main() -> None:
         set_current_version(args.version)
         print(f"Switched to version {args.version}")
     elif args.command == "promote":
-        entry = promote_version(args.version, args.adapter_dir)
+        entry = promote_version(args.version, args.adapter_dir, merged_dir=args.merged_dir, gguf_dir=args.gguf_dir)
         print(json.dumps(entry, indent=2))
     elif args.command == "delete":
         ok = delete_version(args.version)

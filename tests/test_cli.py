@@ -59,6 +59,7 @@ def test_run_local_inference_returns_answer(monkeypatch: pytest.MonkeyPatch) -> 
 def test_find_model_prefers_existing_candidates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake_model = tmp_path / "custom.gguf"
     fake_model.write_text("gguf", encoding="utf-8")
+    monkeypatch.setattr(cli, "get_current_gguf", lambda: None)
     monkeypatch.setattr(cli, "MODEL_CANDIDATES", [tmp_path / "missing.gguf", fake_model])
 
     assert cli.find_model() == fake_model
@@ -66,6 +67,17 @@ def test_find_model_prefers_existing_candidates(tmp_path: Path, monkeypatch: pyt
 
 
 def test_find_model_returns_none_when_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(cli, "get_current_gguf", lambda: None)
     monkeypatch.setattr(cli, "MODEL_CANDIDATES", [tmp_path / "missing.gguf"])
 
     assert cli.find_model() is None
+
+
+def test_find_model_prefers_registered_current_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The GGUF registered as the current version wins over name-based candidates."""
+    registered = tmp_path / "registered.gguf"
+    registered.write_text("gguf", encoding="utf-8")
+    monkeypatch.setattr(cli, "get_current_gguf", lambda: registered)
+    monkeypatch.setattr(cli, "MODEL_CANDIDATES", [tmp_path / "missing.gguf"])
+
+    assert cli.find_model() == registered
