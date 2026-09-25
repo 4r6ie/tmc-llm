@@ -5,108 +5,826 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TMC-LM Chat</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem; line-height: 1.5; }
-        .chat-container { height: 500px; border: 1px solid #ddd; border-radius: 8px; padding: 1rem; overflow-y: auto; background: #fafafa; }
-        .message { margin: 0.5rem 0; padding: 0.5rem 0.8rem; border-radius: 12px; max-width: 80%; }
-        .user { background: #e3f2fd; margin-left: auto; text-align: right; }
-        .assistant { background: #e8f5e9; }
-        .input-area { display: flex; gap: 0.5rem; margin-top: 1rem; }
-        input { flex: 1; padding: 0.5rem; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px; }
-        button { padding: 0 1rem; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        .status { padding: 0.5rem; background: #fff3e0; border-radius: 4px; margin-bottom: 1rem; color: #e65100; }
+        :root {
+            color-scheme: light;
+            --bg: #ffffff;
+            --bg-alt: #f7f7f8;
+            --border: #e5e5e5;
+            --text: #0f0f10;
+            --text-muted: #5f5f64;
+            --accent: #1a5fc9;
+            --accent-hover: #10479a;
+            --user-bubble: #f0f0f0;
+            --error: #c62828;
+            --error-bg: #fdecea;
+            --code-bg: #0d1117;
+            --code-text: #e6edf3;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        html[data-theme="dark"] {
+            color-scheme: dark;
+            --bg: #1a1a1e;
+            --bg-alt: #26262c;
+            --border: #3a3a42;
+            --text: #ececf1;
+            --text-muted: #9a9aa5;
+            --accent: #6ea8ff;
+            --accent-hover: #8db8ff;
+            --user-bubble: #2f2f38;
+            --error: #f28b82;
+            --error-bg: #401f24;
+            --code-bg: #0d1117;
+            --code-text: #e6edf3;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        .app { display: flex; flex-direction: column; height: 100%; }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+        .brand { display: flex; align-items: center; gap: 10px; }
+        .logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: var(--accent);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            font-size: 11px;
+            letter-spacing: 0.5px;
+        }
+        .title { font-weight: 600; font-size: 15px; }
+        .top-actions { display: flex; align-items: center; gap: 8px; }
+        .status-pill {
+            font-size: 12px;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 12px;
+            background: var(--bg-alt);
+        }
+        .status-pill.error { color: var(--error); border-color: #f1b6b4; background: var(--error-bg); }
+        .new-chat-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-muted);
+            border-radius: 999px;
+            padding: 4px 12px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s, background 0.15s;
+        }
+        .new-chat-btn:hover { color: var(--text); border-color: #c9c9ce; background: var(--bg-alt); }
+        .theme-btn { display: inline-flex; align-items: center; }
+        .theme-btn .moon { display: none; }
+        html[data-theme="dark"] .theme-btn .sun { display: none; }
+        html[data-theme="dark"] .theme-btn .moon { display: inline; }
+
+        @media (max-width: 640px) {
+            .title { display: none; }
+            .new-chat-btn span { display: none; }
+            .status-pill { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .topbar { padding: 8px 12px; }
+            .welcome { padding: 32px 16px; }
+            .welcome h1 { font-size: 22px; }
+            .thread { padding: 16px 12px 28px; }
+            .composer { padding: 10px 10px 8px; }
+            .msg.user .content { max-width: 86%; }
+        }
+
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        .welcome {
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 48px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            min-height: 100%;
+            gap: 8px;
+        }
+        .welcome-badge {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            display: grid;
+            place-items: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        .welcome h1 { font-size: 26px; margin: 8px 0 4px; }
+        .welcome p { color: var(--text-muted); margin: 0 0 20px; max-width: 480px; line-height: 1.5; }
+        .suggestions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+        .chip {
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            background: var(--bg);
+            color: var(--text);
+            padding: 9px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+        }
+        .chip:hover { border-color: var(--accent); background: var(--bg-alt); }
+
+        .thread {
+            max-width: 760px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 24px 16px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+        .thread[hidden], .welcome[hidden] { display: none; }
+
+        .msg { display: flex; gap: 12px; align-items: flex-start; }
+        .msg .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            color: var(--accent);
+            display: grid;
+            place-items: center;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .msg.user { justify-content: flex-end; }
+        .msg.user .content {
+            background: var(--user-bubble);
+            border-radius: 18px 18px 6px 18px;
+            padding: 9px 15px;
+            max-width: 72%;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+        .msg.assistant .msg-body { flex: 1; min-width: 0; }
+        .msg.assistant .content {
+            line-height: 1.65;
+            overflow-wrap: anywhere;
+            padding-top: 3px;
+        }
+        .stream-pane { white-space: pre-wrap; }
+
+        .msg.assistant .content p { margin: 0 0 10px; }
+        .msg.assistant .content p:last-child { margin-bottom: 0; }
+        .msg.assistant .content h1, .msg.assistant .content h2,
+        .msg.assistant .content h3, .msg.assistant .content h4,
+        .msg.assistant .content h5, .msg.assistant .content h6 {
+            margin: 16px 0 8px;
+            line-height: 1.3;
+        }
+        .msg.assistant .content h1 { font-size: 1.4em; }
+        .msg.assistant .content h2 { font-size: 1.25em; }
+        .msg.assistant .content h3 { font-size: 1.1em; }
+        .msg.assistant .content ul, .msg.assistant .content ol {
+            margin: 6px 0 10px;
+            padding-left: 24px;
+        }
+        .msg.assistant .content li { margin: 3px 0; }
+        .msg.assistant .content hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+        .msg.assistant .content blockquote {
+            border-left: 3px solid var(--border);
+            padding-left: 12px;
+            margin: 8px 0;
+            color: var(--text-muted);
+        }
+        .msg.assistant .content a { color: var(--accent); }
+        .msg.assistant .content code {
+            font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.15em 0.4em;
+            font-size: 0.88em;
+        }
+        .msg.assistant .content pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            border-radius: 10px;
+            padding: 12px 14px;
+            overflow-x: auto;
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        .msg.assistant .content pre code {
+            background: transparent;
+            border: none;
+            padding: 0;
+            font-size: 13px;
+        }
+
+        .actions { display: flex; gap: 6px; margin-top: 8px; opacity: 0; transition: opacity 0.15s; }
+        .msg:hover .actions, .actions:focus-within { opacity: 1; }
+        @media (hover: none) { .actions { opacity: 1; } }
+        .copy-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-muted);
+            border-radius: 8px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: color 0.15s, border-color 0.15s;
+        }
+        .copy-btn:hover { color: var(--text); border-color: #c9c9ce; }
+        .copy-btn.copied { color: var(--accent); border-color: var(--accent); }
+        .copy-btn .check-icon { display: none; }
+        .copy-btn.copied .copy-icon { display: none; }
+        .copy-btn.copied .check-icon { display: inline; }
+
+        .typing { display: inline-flex; gap: 5px; padding: 7px 2px; }
+        .typing i {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: bounce 1.2s infinite ease-in-out;
+        }
+        .typing i:nth-child(2) { animation-delay: 0.15s; }
+        .typing i:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 17px;
+            background: var(--text);
+            vertical-align: text-bottom;
+            margin-left: 1px;
+            animation: blink 1s steps(1) infinite;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+        .stream-error {
+            display: inline-block;
+            color: var(--error);
+            background: var(--error-bg);
+            border: 1px solid #f1b6b4;
+            border-radius: 10px;
+            padding: 8px 12px;
+            font-size: 14px;
+        }
+
+        .composer {
+            border-top: 1px solid var(--border);
+            background: var(--bg);
+            padding: 12px 16px 10px;
+        }
+        .input-wrap {
+            max-width: 760px;
+            margin: 0 auto;
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            background: var(--bg-alt);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 8px 8px 8px 18px;
+            box-shadow: var(--shadow);
+        }
+        .input-wrap:focus-within { border-color: var(--accent); }
+        textarea {
+            flex: 1;
+            border: none;
+            outline: none;
+            background: transparent;
+            resize: none;
+            font: inherit;
+            font-size: 15px;
+            line-height: 1.4;
+            color: var(--text);
+            max-height: 200px;
+            padding: 6px 0;
+        }
+        textarea::placeholder { color: var(--text-muted); }
+        .send-btn {
+            width: 34px;
+            height: 34px;
+            border: none;
+            border-radius: 50%;
+            background: var(--accent);
+            color: #fff;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: background 0.15s;
+        }
+        .send-btn:hover:not(:disabled) { background: var(--accent-hover); }
+        .send-btn:disabled { background: #c9c9ce; cursor: not-allowed; }
+        .composer-note {
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
-    <h2>TMC-LM Offline Assistant</h2>
-    <div class="status" id="status">Loading model...</div>
-    <div class="chat-container" id="chat">
-        <div class="message assistant">Hello! I'm TMC-LM, an offline assistant for Trinidad Municipal College. Ask me about TMC's vision, mission, programs, and other institutional knowledge.</div>
-    </div>
-    <div class="input-area">
-        <input type="text" id="prompt" placeholder="Ask me anything about TMC...">
-        <button id="send" disabled>Send</button>
+    <div class="app">
+        <header class="topbar">
+            <div class="brand">
+                <div class="logo">TMC</div>
+                <span class="title">TMC-LM Assistant</span>
+            </div>
+            <div class="top-actions">
+                <div class="status-pill" id="status">Checking model...</div>
+                <button id="theme" class="new-chat-btn theme-btn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+                    <svg class="sun" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+                    <svg class="moon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                </button>
+                <button id="newChat" class="new-chat-btn" type="button" title="Start a new conversation">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                    <span>New chat</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="chat-area" id="chatArea">
+            <section class="welcome" id="welcome">
+                <div class="welcome-badge">TMC</div>
+                <h1>Ano ang gusto mong malaman?</h1>
+                <p>Ask TMC-LM about Trinidad Municipal College's vision, mission, programs, student life, and more.</p>
+                <div class="suggestions" id="suggestions">
+                    <button class="chip" type="button">What is TMC&rsquo;s vision?</button>
+                    <button class="chip" type="button">What is TMC&rsquo;s mission?</button>
+                    <button class="chip" type="button">List TMC&rsquo;s programs</button>
+                    <button class="chip" type="button">When was TMC founded?</button>
+                </div>
+            </section>
+            <section class="thread" id="thread" hidden></section>
+        </main>
+
+        <footer class="composer">
+            <div class="input-wrap">
+                <textarea id="prompt" rows="1" placeholder="Ask anything about TMC..." autocomplete="off"></textarea>
+                <button id="send" class="send-btn" type="button" disabled aria-label="Send message">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>
+                </button>
+            </div>
+            <div class="composer-note">TMC-LM is a local model and may make mistakes. Verify important answers with official TMC sources.</div>
+        </footer>
     </div>
 
     <script>
-        const chat = document.getElementById('chat');
+        const chatArea = document.getElementById('chatArea');
+        const welcome = document.getElementById('welcome');
+        const thread = document.getElementById('thread');
         const input = document.getElementById('prompt');
-        const send = document.getElementById('send');
-        const status = document.getElementById('status');
+        const sendBtn = document.getElementById('send');
+        const statusPill = document.getElementById('status');
+        const suggestions = document.getElementById('suggestions');
+        const newChatBtn = document.getElementById('newChat');
+        const themeBtn = document.getElementById('theme');
 
-        let modelsAvailable = false;
+        const MAX_HISTORY = 12;
+        let history = [];
+        let busy = false;
+        let modelReady = false;
+
+        (function initTheme() {
+            let chosen = null;
+            try { chosen = localStorage.getItem('tmc-theme'); } catch (err) {}
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.dataset.theme = chosen || (prefersDark ? 'dark' : 'light');
+        })();
+
+        themeBtn.addEventListener('click', function () {
+            const current = document.documentElement.dataset.theme;
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.dataset.theme = next;
+            try { localStorage.setItem('tmc-theme', next); } catch (err) {}
+        });
+
+        function trimHistory() {
+            if (history.length > MAX_HISTORY) {
+                history = history.slice(history.length - MAX_HISTORY);
+            }
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function renderInline(text) {
+            let s = escapeHtml(text);
+            s = s.replace(/`([^`]+)`/g, function (m, code) { return '<code>' + code + '</code>'; });
+            s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            s = s.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+            s = s.replace(/\*([^*\s][^*]*)\*/g, '<em>$1</em>');
+            s = s.replace(/(^|[^*])\_([^_\s][^_]*)\_/g, '$1<em>$2</em>');
+            s = s.replace(/~~([^~]+)~~/g, '<del>$1</del>');
+            s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, function (m, label, url) {
+                return '<a href="' + url + '" target="_blank" rel="noopener">' + label + '</a>';
+            });
+            return s;
+        }
+
+        function renderMarkdown(src) {
+            const lines = src.replace(/\r\n/g, '\n').split('\n');
+            let out = '';
+            let i = 0;
+            let inCode = false;
+            let codeBuf = [];
+            let codeLang = '';
+            let paragraph = [];
+
+            function flushParagraph() {
+                if (paragraph.length) {
+                    out += '<p>' + renderInline(paragraph.join('\n')) + '</p>';
+                    paragraph = [];
+                }
+            }
+            function flushCode() {
+                if (inCode) {
+                    out += '<pre><code' + (codeLang ? ' class="lang-' + escapeHtml(codeLang) + '"' : '') + '>' +
+                        escapeHtml(codeBuf.join('\n')) + '</code></pre>';
+                    codeBuf = [];
+                    codeLang = '';
+                }
+            }
+
+            for (i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (/^\s{0,3}(```|~~~)[ \t]*[\w-]*[ \t]*$/.test(line)) {
+                    flushParagraph();
+                    if (inCode) {
+                        flushCode();
+                        inCode = false;
+                    } else {
+                        inCode = true;
+                        codeLang = (line.match(/[\w-]+/) || [''])[0];
+                    }
+                    continue;
+                }
+                if (inCode) { codeBuf.push(line); continue; }
+
+                if (/^\s*$/.test(line)) { flushParagraph(); continue; }
+
+                const heading = line.match(/^(#{1,6})\s+(.*)$/);
+                if (heading) {
+                    flushParagraph();
+                    const level = heading[1].length;
+                    out += '<h' + level + '>' + renderInline(heading[2]) + '</h' + level + '>';
+                    continue;
+                }
+
+                const nonBreaking = line.replace(/[\s\-*_]/g, '');
+                if (nonBreaking === '' && line.replace(/[^\-\*_]/g, '').length >= 3) {
+                    flushParagraph();
+                    out += '<hr>';
+                    continue;
+                }
+
+                const quote = line.match(/^\s*>\s?(.*)$/);
+                if (quote) {
+                    flushParagraph();
+                    let qLines = [quote[1]];
+                    while (i + 1 < lines.length) {
+                        const next = lines[i + 1].match(/^\s*>\s?(.*)$/);
+                        if (!next) break;
+                        i++;
+                        qLines.push(next[1]);
+                    }
+                    out += '<blockquote>' + renderInline(qLines.join('<br>')) + '</blockquote>';
+                    continue;
+                }
+
+                const unordered = line.match(/^\s*[-*+]\s+(.*)$/);
+                const ordered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+                if (unordered || ordered) {
+                    flushParagraph();
+                    const tag = unordered ? 'ul' : 'ol';
+                    const re = ordered ? /^\s*\d+[.)]\s+(.*)$/ : /^\s*[-*+]\s+(.*)$/;
+                    const items = [ordered ? ordered[1] : unordered[1]];
+                    while (i + 1 < lines.length) {
+                        const m = lines[i + 1].match(re);
+                        if (!m) break;
+                        i++;
+                        items.push(m[1]);
+                    }
+                    out += '<' + tag + '>' + items.map(function (it) {
+                        return '<li>' + renderInline(it) + '</li>';
+                    }).join('') + '</' + tag + '>';
+                    continue;
+                }
+
+                paragraph.push(line);
+            }
+            flushCode();
+            flushParagraph();
+            return out;
+        }
+
+        function copyText(text, btn) {
+            function indicate() {
+                btn.classList.add('copied');
+                btn.title = 'Copied!';
+                setTimeout(function () {
+                    btn.classList.remove('copied');
+                    btn.title = 'Copy';
+                }, 1500);
+            }
+            function fallback() {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'fixed';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (err) {}
+                document.body.removeChild(ta);
+            }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(text).then(indicate).catch(function () { fallback(); indicate(); });
+            } else {
+                fallback();
+                indicate();
+            }
+        }
 
         async function checkModel() {
-            const res = await fetch('/api/model-status');
-            const data = await res.json();
-            if (data.found) {
-                modelsAvailable = true;
-                status.style.display = 'none';
-                send.disabled = false;
-            } else {
-                status.innerHTML = `No GGUF model found. <a href="/api/local-inference" target="_blank">See Docker alternative</a>`;
-                status.style.display = 'block';
-                send.disabled = true;
+            try {
+                const res = await fetch('/api/model-status');
+                const data = await res.json();
+                if (data.found) {
+                    modelReady = true;
+                    statusPill.textContent = 'Model ready';
+                    statusPill.classList.remove('error');
+                    setComposerDisabled(false);
+                } else {
+                    modelReady = false;
+                    statusPill.textContent = 'No model found';
+                    statusPill.classList.add('error');
+                }
+            } catch (err) {
+                modelReady = false;
+                statusPill.textContent = 'Server unreachable';
+                statusPill.classList.add('error');
             }
         }
 
-        async function sendMessage() {
+        function scrollToBottom() {
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        function addUserMessage(text) {
+            const msg = document.createElement('div');
+            msg.className = 'msg user';
+            const content = document.createElement('div');
+            content.className = 'content';
+            content.textContent = text;
+            msg.appendChild(content);
+            thread.appendChild(msg);
+        }
+
+        function addAssistantMessage() {
+            const msg = document.createElement('div');
+            msg.className = 'msg assistant';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            avatar.textContent = 'TMC';
+
+            const body = document.createElement('div');
+            body.className = 'msg-body';
+
+            const content = document.createElement('div');
+            content.className = 'content';
+
+            const actions = document.createElement('div');
+            actions.className = 'actions';
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.className = 'copy-btn';
+            copyBtn.title = 'Copy';
+            copyBtn.innerHTML =
+                '<svg class="copy-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
+                '<svg class="check-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>' +
+                '<span>Copy</span>';
+            actions.appendChild(copyBtn);
+
+            body.appendChild(content);
+            body.appendChild(actions);
+            msg.appendChild(avatar);
+            msg.appendChild(body);
+            thread.appendChild(msg);
+
+            copyBtn.addEventListener('click', function () {
+                const plain = (content.dataset.plain || content.textContent).trim();
+                if (plain) copyText(plain, copyBtn);
+            });
+
+            return { element: msg, content: content };
+        }
+
+        function setComposerDisabled(disabled) {
+            sendBtn.disabled = disabled || busy || !modelReady;
+        }
+
+        function resetInputHeight() {
+            input.style.height = 'auto';
+        }
+
+        function send() {
             const text = input.value.trim();
-            if (!text || !modelsAvailable) return;
+            if (!text || busy) return;
 
-            // Add user message
-            const userMsg = document.createElement('div');
-            userMsg.className = 'message user';
-            userMsg.textContent = 'You: ' + text;
-            chat.appendChild(userMsg);
+            busy = true;
+            setComposerDisabled(true);
+            welcome.hidden = true;
 
-            // Clear input
+            history.push({ role: 'user', content: text });
+            trimHistory();
+
+            addUserMessage(text);
             input.value = '';
-            send.disabled = true;
-            send.textContent = ' Thinking...';
+            resetInputHeight();
+            scrollToBottom();
 
-            try {
-                // Get answer from API
-                const res = await fetch('/query', {
+            const assistant = addAssistantMessage();
+            const content = assistant.content;
+
+            const pane = document.createElement('span');
+            pane.className = 'stream-pane';
+            content.appendChild(pane);
+
+            const cursor = document.createElement('span');
+            cursor.className = 'cursor';
+            pane.appendChild(cursor);
+
+            const typing = document.createElement('span');
+            typing.className = 'typing';
+            typing.innerHTML = '<i></i><i></i><i></i>';
+            content.appendChild(typing);
+
+            let fullText = '';
+            let streamed = false;
+
+            function finish(errorDetail) {
+                cursor.remove();
+                typing.remove();
+                busy = false;
+                setComposerDisabled(false);
+                if (errorDetail) {
+                    pane.remove();
+                    const errNode = document.createElement('span');
+                    errNode.className = 'stream-error';
+                    errNode.textContent = errorDetail;
+                    content.appendChild(errNode);
+                } else {
+                    pane.remove();
+                    content.innerHTML = renderMarkdown(fullText);
+                    content.dataset.plain = fullText.trim();
+                    if (fullText.trim()) {
+                        history.push({ role: 'assistant', content: fullText.trim() });
+                        trimHistory();
+                    }
+                }
+                scrollToBottom();
+            }
+
+            function handleEvent(raw) {
+                const dataLine = raw.split('\n').find(function (line) {
+                    return line.startsWith('data: ');
+                });
+                if (!dataLine) return;
+                let payload;
+                try {
+                    payload = JSON.parse(dataLine.slice(6));
+                } catch (err) {
+                    return;
+                }
+                if (payload.type === 'token') {
+                    if (!streamed) {
+                        streamed = true;
+                        typing.remove();
+                    }
+                    fullText += payload.content;
+                    pane.insertBefore(document.createTextNode(payload.content), cursor);
+                    scrollToBottom();
+                } else if (payload.type === 'done') {
+                    finish(null);
+                } else if (payload.type === 'error') {
+                    finish(payload.detail || 'Inference failed.');
+                }
+            }
+
+            async function stream() {
+                let buffer = '';
+                const parseBuffer = function () {
+                    let index;
+                    while ((index = buffer.indexOf('\n\n')) !== -1) {
+                        const event = buffer.slice(0, index);
+                        buffer = buffer.slice(index + 2);
+                        if (event.trim()) handleEvent(event);
+                    }
+                };
+
+                const res = await fetch('/query/stream', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ prompt: text })
+                    body: JSON.stringify({ prompt: text, messages: history })
                 });
-                const data = await res.json();
 
-                // Add assistant message
-                const assistMsg = document.createElement('div');
-                assistMsg.className = 'message assistant';
-                if (res.ok) {
-                    assistMsg.textContent = 'TMC-LM: ' + (data.answer || 'Empty answer.');
-                } else {
-                    assistMsg.textContent = 'TMC-LM error: ' + (data.detail || ('HTTP ' + res.status));
-                    assistMsg.style.background = '#ffebee';
+                if (!res.ok) {
+                    const body = await res.json().catch(function () { return {}; });
+                    throw new Error(body.detail || ('HTTP ' + res.status));
                 }
-                chat.appendChild(assistMsg);
-            } catch (err) {
-                const errMsg = document.createElement('div');
-                errMsg.className = 'message assistant';
-                errMsg.textContent = 'Connection error: could not reach the API. Is the server still running?';
-                errMsg.style.background = '#ffebee';
-                chat.appendChild(errMsg);
-            } finally {
-                chat.scrollTop = chat.scrollHeight;
-                send.disabled = false;
-                send.textContent = 'Send';
+                if (!res.body) throw new Error('Streaming is not supported by this browser.');
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder();
+                while (true) {
+                    const chunk = await reader.read();
+                    if (chunk.done) break;
+                    buffer += decoder.decode(chunk.value, { stream: true });
+                    parseBuffer();
+                }
+                buffer += decoder.decode();
+                parseBuffer();
             }
+
+            stream().then(function () {
+                finish(null);
+            }).catch(function (err) {
+                finish(err.message || 'Connection error: could not reach the API.');
+            });
         }
 
-        // Events
-        send.addEventListener('click', sendMessage);
-        input.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
+        input.addEventListener('input', function () {
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 200) + 'px';
         });
 
-        // Initialize
-        checkModel().then(() => {
-            if (modelsAvailable) status.style.display = 'none';
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                send();
+            }
         });
+
+        sendBtn.addEventListener('click', send);
+
+        suggestions.addEventListener('click', function (e) {
+            const chip = e.target.closest('.chip');
+            if (!chip) return;
+            input.value = chip.textContent;
+            input.focus();
+            send();
+        });
+
+        newChatBtn.addEventListener('click', function () {
+            if (busy) return;
+            history = [];
+            thread.innerHTML = '';
+            welcome.hidden = false;
+            setComposerDisabled(false);
+            input.focus();
+        });
+
+        window.addEventListener('focus', checkModel);
+        checkModel();
     </script>
 </body>
 </html>

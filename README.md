@@ -325,8 +325,15 @@ curl -X POST http://localhost:8000/query \
 
 | Endpoint | Method | Params | Response |
 |----------|--------|--------|----------|
-| `/query` | POST | `prompt` (str, required) | `{"answer": str, "source": str|none, "confidence": float}` |
+| `/query` | POST | `prompt` (str, required) or `messages` (list, multi-turn) | `{"answer": str}` |
+| `/query/stream` | POST | `prompt` (str, required) or `messages` (list, multi-turn) | SSE token events (`text/event-stream`): `data: {"type":"token","content":"..."}` ... `data: {"type":"done"}` |
 | `/health` | GET | none | `{"status": "ok"}` |
+
+Multi-turn example: pass OpenAI-style history where the last message has `"role": "user"`:
+
+```bash
+curl -X POST http://localhost:8000/query/stream -H "Content-Type: application/json" -d '{"messages":[{"role":"user","content":"What is TMC's vision?"},{"role":"assistant","content":"TMC aspires to be a premier municipal college."},{"role":"user","content":"And its mission?"}]}'
+```
 
 - Port: `8000`
 - Uses GGUF model from `models/gguf/` (or falls back to Docker command)
