@@ -243,17 +243,17 @@ def main() -> None:
         entry = promote_version(args.version, args.adapter_dir, merged_dir=args.merged_dir, gguf_dir=args.gguf_dir)
         print(json.dumps(entry, indent=2))
     elif args.command == "set-gguf":
-        entry = update_version_artifacts(args.version, gguf_dir=args.gguf_dir, status="promoted")
-        if entry is None:
+        updated = update_version_artifacts(args.version, gguf_dir=args.gguf_dir, status="promoted")
+        if updated is None:
             print(f"Version {args.version} not found. Register it first with 'register'.", file=sys.stderr)
             sys.exit(1)
-        print(json.dumps(entry, indent=2))
+        print(json.dumps(updated, indent=2))
     elif args.command == "set-merged":
-        entry = update_version_artifacts(args.version, merged_dir=args.merged_dir)
-        if entry is None:
+        updated = update_version_artifacts(args.version, merged_dir=args.merged_dir)
+        if updated is None:
             print(f"Version {args.version} not found. Register it first with 'register'.", file=sys.stderr)
             sys.exit(1)
-        print(json.dumps(entry, indent=2))
+        print(json.dumps(updated, indent=2))
     elif args.command == "delete":
         ok = delete_version(args.version)
         print(f"Deleted: {ok}")

@@ -242,7 +242,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--adapter-dir",
         type=Path,
-        default=Path("models/adapters/tmc-lm-tinyllama-lora-v1.0"),
+        default=Path("models/adapters/tmc-lm-tinyllama-lora"),
     )
     parser.add_argument("--sample-size", type=int, default=50)
     parser.add_argument("--output", type=Path, default=None, help="Path to save evaluation results JSON.")

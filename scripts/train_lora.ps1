@@ -5,7 +5,7 @@ $env:PYTHONDONTWRITEBYTECODE = "1"
 python -m tmc_llm.train_lora `
   --config .\configs\train_lora.yaml
 
-$adapterDir = ".\models\adapters\tmc-lm-tinyllama-lora-v1.0"
+$adapterDir = ".\models\adapters\tmc-lm-tinyllama-lora"
 if (-not (Test-Path $adapterDir)) {
     throw "Training finished but adapter directory was not found: $adapterDir. Check configs/train_lora.yaml and rerun."
 }

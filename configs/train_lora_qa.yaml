@@ -1,7 +1,7 @@
 base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
 dataset_train: data/processed/qa_train.jsonl
 dataset_validation: data/processed/qa_validation.jsonl
-output_dir: models/adapters/tmc-lm-tinyllama-lora-qa-v1.0
+output_dir: models/adapters/tmc-lm-tinyllama-lora-qa
 
 version: "1.0-qa"
 
