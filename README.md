@@ -1,6 +1,31 @@
 # TMC-LM
 
-Local TinyLlama-based training scaffold for Trinidad Municipal College (TMC) knowledge.
+Local TinyLlama-based institutional chatbot for Trinidad Municipal College (TMC).
+
+## Overview
+
+TMC-LM fine-tunes **TinyLlama-1.1B-Chat** on official TMC documents (vision, mission, programs, history, policies) so students, faculty, and staff get accurate, offline-capable answers instead of generic or hallucinated responses from public LLMs.
+
+**Who it's for:** TMC students/faculty/staff, IT admins deploying on low-resource local machines (Ryzen 3 / 8GB VRAM / CPU-only friendly).
+**What it does:** Builds a private Q&A model from `data/raw/tmc_sources/` and serves it via CLI, Docker, FastAPI, or web chat. Answers only from trained official knowledge and says it does not know when out of scope.
+
+## Features
+
+- LoRA fine-tuning of TinyLlama-1.1B-Chat-v1.0 for lightweight local training
+- Multi-format dataset builder (`.txt`, `.md`, `.pdf`, `.docx`, `.xlsx`, `.csv`, `.json`)
+- Merged + GGUF quantized output (`F16` / `Q4_K_M`) for CPU inference
+- Run via Docker (llama.cpp), local Python (`llama-cpp-python`), CLI, FastAPI, or `web_chat.html`
+- Grounded responses with unknown-query refusal behavior
+
+## Architecture
+
+```text
+data/raw/tmc_sources/ (train.txt, pdfs, docs)
+  -> prepare_dataset.ps1 -> data/processed/ (jsonl, corpus.txt)
+  -> train_lora.ps1 (LoRA adapter) -> merge_lora.ps1 (merged HF model)
+  -> GGUF convert + quantize (llama.cpp) -> models/gguf/*.gguf
+  -> Inference: Docker CLI / tmc_llm.cli / tmc_llm.api + web_chat.html
+```
 
 This project uses:
 
@@ -11,6 +36,20 @@ This project uses:
 - GGUF conversion via llama.cpp (Docker or local) for local inference
 - FastAPI for HTTP API endpoint
 - Web-based chat interface
+
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Download Base Model](#download-base-model)
+- [Quick Start (Windows PowerShell)](#quick-start-windows-powershell)
+- [Docker Setup (Full Pipeline)](#docker-setup-full-pipeline)
+- [Local Inference](#local-inference-no-docker-required)
+- [Model Details](#model-details)
+- [Folder Structure](#folder-structure)
+- [Adding New Source Documents](#adding-new-source-documents)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Prerequisites
 
@@ -30,78 +69,29 @@ This project uses:
 - **RAM**: 16GB+ system memory
 - **Disk**: 10GB+ free space for models and datasets
 
-## Download Base Model (Required First Step)
+## Download Base Model
 
-The base model **TinyLlama/TinyLlama-1.1B-Chat-v1.0** (~2.2 GB) must be downloaded from Hugging Face before training.
+The base model **TinyLlama/TinyLlama-1.1B-Chat-v1.0** (~2.2 GB) is **automatically downloaded** on first run of `.\scripts\train_lora.ps1` to `~/.cache/huggingface/hub/`. No manual action needed (see Quick Start step 5).
 
-### Option 1: Automatic (Recommended)
-
-The model is **automatically downloaded** on first run of `train_lora.ps1`. No manual action needed.
-
-```powershell
-# This will download the model automatically
-.\scripts\train_lora.ps1
-```
-
-Download location: `~/.cache/huggingface/hub/models--TinyLlama--TinyLlama-1.1B-Chat-v1.0/`
-
-### Option 2: Manual Pre-Download (For Offline/Air-gapped Environments)
-
-If you need to pre-download or work offline:
+<details>
+<summary>Manual / offline download (optional)</summary>
 
 ```powershell
-# Using Python
-python -c "
-from transformers import AutoModelForCausalLM, AutoTokenizer
-model_id = 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id)
-tokenizer.save_pretrained('./models/base/tinyllama-1.1b-chat')
-model.save_pretrained('./models/base/tinyllama-1.1b-chat')
-print('Model saved to ./models/base/tinyllama-1.1b-chat')
-"
-```
-
-Then update `configs/train_lora.yaml`:
-```yaml
-base_model: ./models/base/tinyllama-1.1b-chat
-```
-
-### Option 3: Using huggingface-cli
-
-```powershell
-# Install huggingface_hub
-pip install huggingface_hub
-
-# Download model
 huggingface-cli download TinyLlama/TinyLlama-1.1B-Chat-v1.0 --local-dir ./models/base/tinyllama-1.1b-chat
 ```
 
-Then update `configs/train_lora.yaml`:
+Then in `configs/train_lora.yaml`:
 ```yaml
 base_model: ./models/base/tinyllama-1.1b-chat
 ```
 
-### Verify Download
-
+Verify:
 ```powershell
-# Check if model exists in cache
-ls ~/.cache/huggingface/hub/models--TinyLlama--TinyLlama-1.1B-Chat-v1.0/
-
-# Or verify local path
 ls ./models/base/tinyllama-1.1b-chat/
+# expected: config.json, model.safetensors, tokenizer.json, tokenizer.model, tokenizer_config.json
 ```
 
-Expected files:
-```
-config.json
-generation_config.json
-model.safetensors
-tokenizer.json
-tokenizer.model
-tokenizer_config.json
-special_tokens_map.json
-```
+</details>
 
 ---
 
@@ -321,9 +311,34 @@ If no GGUF model is found, the script will print the Docker command you can run 
 
 ---
 
-## Model Details
+## API Reference (FastAPI)
 
-### Base Model
+```powershell
+# Start server
+python -m tmc_llm.api
+
+# Query endpoint
+curl -X POST http://localhost:8000/query \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "What is TMC\'s vision?"}'
+```
+
+| Endpoint | Method | Params | Response |
+|----------|--------|--------|----------|
+| `/query` | POST | `prompt` (str, required) | `{"answer": str, "source": str|none, "confidence": float}` |
+| `/health` | GET | none | `{"status": "ok"}` |
+
+- Port: `8000`
+- Uses GGUF model from `models/gguf/` (or falls back to Docker command)
+- Unknown answers return `{"answer": "I do not know", "source": null}`
+
+## Web Chat Interface
+
+Open `web_chat.html` in a browser for a UI that sends queries to `/query`.
+
+---
+
+## Model Details
 
 | Property | Value |
 |----------|-------|
@@ -334,36 +349,43 @@ If no GGUF model is found, the script will print the Docker command you can run 
 | **License** | Apache 2.0 |
 | **Hugging Face** | https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0 |
 
-### Automatic Download
+See [Download Base Model](#download-base-model) for automatic vs. manual download.
 
-The model is **automatically downloaded** from Hugging Face when you run `train_lora.ps1` (first run only). The transformers library handles caching in `~/.cache/huggingface/hub/`.
+## Evaluation
 
-**No manual download needed** - just run the training script.
+### How to run the test suite
 
-### Manual Download (if needed)
-
-If you want to pre-download or use offline:
-
-```python
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
-model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id)
-
-# Save locally
-tokenizer.save_pretrained("./models/base/tinyllama-1.1b-chat")
-model.save_pretrained("./models/base/tinyllama-1.1b-chat")
+```powershell
+python -m pytest
 ```
 
-Then update `configs/train_lora.yaml`:
-```yaml
-base_model: ./models/base/tinyllama-1.1b-chat
-```
+### Sample Q&A test prompts (5 examples)
+
+| # | Prompt | Expected answer pattern |
+|---|--------|------------------------|
+| 1 | `What is TMC's vision?` | Starts with "TMC aspires to be a premier..." |
+| 2 | `What is TMC's mission?` | Starts with "To provide quality education..." |
+| 3 | `List TMC's programs` | Accountancy, Business, IT (or similar) |
+| 4 | `When was TMC founded?` | "Founded in 1952" or similar |
+| 5 | `What is the capital of the Philippines?` | `I do not know` (out of scope) |
+
+### Quality criteria
+
+- ✅ Answers only from officially trained TMC knowledge
+- ✅ Correctly says `I do not know` when query is outside trained sources
+- ✅ Refuses to answer non-TMC questions (hallucination prevention)
+- ✅ Response latency acceptable for ctx-size 2048 / temp 0.2
+
+### Limitations
+
+- 1.1B parameter model has limited reasoning capacity beyond retrieved facts
+- Context length 2048 tokens — long documents may be truncated
+- CPU-only training is slow (default small batch sizes)
+- Quantized GGUF models may lose some nuance vs. full-precision
 
 ---
 
-## Folder Structure
+---
 
 ```text
 tmc-llm/
@@ -398,7 +420,44 @@ tmc-llm/
 
 ---
 
-## Adding New Source Documents
+## Data Format
+
+The dataset builder reads files from `data/raw/tmc_sources/` and extracts:
+
+- **File name** (without extension) → document title
+- **Section headings** (`# `, `## `, etc.) → chunk titles  
+- **`LABEL: value` lines** (e.g., `VISION: ...`, `MISSION: ...`)
+- **Plain text chunks** from PDF/DOCX/XLSX/CSV/JSON/TXT
+
+### Minimal `train.txt` example
+
+```text
+VISION: TMC aspires to be a premier ... 
+MISSION: To provide quality education ... 
+PROGRAMS: Accountancy, Business, IT 
+HISTORY: Founded in 1952 ...
+
+Q: What is TMC's vision?
+A: TMC aspires to be a premier ...
+```
+
+### Supported source files
+
+| Extension | Example |
+|-----------|---------|
+| `.txt` | `announcements.txt` |
+| `.md` | `student_handbook.md` |
+| `.pdf` | `faculty_manual.pdf` |
+| `.docx` | `policy.docx` |
+| `.xlsx` | `programs.xlsx` |
+| `.csv` | `grades.csv` |
+| `.json` | `events.json` |
+
+Add files then re-run:
+```powershell
+.\scripts\prepare_dataset.ps1
+```
+---
 
 1. Add files to `data/raw/tmc_sources/`:
    ```text
@@ -426,7 +485,54 @@ The dataset builder dynamically creates training examples from:
 
 ---
 
-## Configuration
+## Configuration & Environment
+
+### `configs/train_lora.yaml`
+
+Key settings (see [Configuration](#configuration) for full table):
+
+```yaml
+base_model: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+max_seq_length: 768
+num_train_epochs: 5
+max_steps: -1          # -1 = run full epochs
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 0.0002
+lr_scheduler_type: cosine
+weight_decay: 0.01
+fp16: true             # auto-disabled on CPU-only
+bf16: false
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+```
+
+### `.env.example` (copy to `.env`)
+
+```env
+# Hugging Face token (needed if rate-limited or private repos)
+HF_HUB_TOKEN=your_token_here
+
+# Inference defaults
+INFERENCE_TEMP=0.2
+INFERENCE_CTX_SIZE=2048
+INFERENCE_REPEAT_PENALTY=1.12
+
+# API
+API_PORT=8000
+```
+
+### VRAM / Disk summary
+
+| Component | Min | Recommended |
+|-----------|-----|-------------|
+| VRAM | 4GB (FP16) | 8GB+ (FP16/Q4_K_M) |
+| System RAM | 8GB | 16GB+ |
+| Disk | 10GB | 20GB+ (models + datasets) |
 
 ### `configs/train_lora.yaml`
 
@@ -453,35 +559,107 @@ lora:
 
 ---
 
-## Troubleshooting
+## Prerequisites (Expanded)
 
-### Python Version Issues
-- Use Python 3.11 or 3.12. Python 3.13+ may not have compatible PyTorch wheels.
-- Check: `py -3.12 --version`
+### Required Tools
 
-### CUDA/GPU Not Detected
+| Tool | Version | Purpose |
+|------|---------|---------|
+| **Python** | 3.11 or 3.12 | ML dependencies (PyTorch, Transformers, FastAPI) |
+| **Git** | Latest | Clone repository |
+| **Docker Desktop** | Latest | Run llama.cpp in Linux container (no Windows build needed) |
+| **uvicorn** | Latest | FastAPI ASGI server for API endpoint |
+| **winget** (optional) | Latest | Install Python 3.12 |
+
+### Execution Policy (Windows PowerShell)
+
 ```powershell
-# Verify CUDA
-python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"
+# Allow scripts to run (required for .ps1 files)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+# Or per-file: .\scripts\train_lora.ps1 -ExecutionPolicy Bypass
 ```
 
-### Docker Issues
-- Ensure Docker Desktop is running with WSL 2 backend
-- Enable "Use the WSL 2 based engine" in Docker Desktop settings
-- For GPU: Enable "Enable NVIDIA GPU support" in Docker Desktop > Resources > Advanced
+### Hardware Recommendations
 
-### Out of Memory (OOM)
-- Reduce `per_device_train_batch_size` to 1
-- Increase `gradient_accumulation_steps`
-- Use `max_seq_length: 512` instead of 768
+- **GPU**: NVIDIA GPU with 8GB+ VRAM (CUDA 11.8+). Training on 4GB VRAM is possible with `fp16: false` + reduced batch size.
+- **CPU**: Ryzen 3 2200G or better (training will be slow on CPU-only; expect 10-30x slower than GPU).
+- **RAM**: 16GB+ system memory.
+- **Disk**: 10GB+ free space for models and datasets.
 
-### Model Download Fails
-- Check internet connection
-- Set `HF_HUB_DISABLE_TELEMETRY=1` (already in scripts)
-- Use `huggingface-cli login` if rate limited
+### Docker WSL2 Setup
 
----
+1. Install Docker Desktop from https://www.docker.com/products/docker-desktop/
+2. Launch Docker Desktop and sign in
+3. Go to **Settings** > **General** > **Use the WSL 2 based engine**
+4. Go to **Resources** > **WSIL Integration** and enable Ubuntu integration
+5. For GPU: Go to **Resources** > **Advanced** and enable "Enable NVIDIA GPU support"
+
+### Hugging Face Authentication
+
+If you hit rate limits or need private repos:
+
+```powershell
+huggingface-cli login
+# Or set token in environment:
+$env:HF_HUB_TOKEN = "hf_..."
+```
+
+Set `HF_HUB_DISABLE_TELEMETRY=1` to suppress telemetry (already in scripts).
+
+### Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| **Python Version Issues** | Use Python 3.11 or 3.12. PyTorch wheels for 3.13+ may not exist. |
+| **CUDA/GPU Not Detected** | Verify: `python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"`. Ensure Docker WSL2 GPU support is enabled. |
+| **Docker Issues** | Ensure Docker Desktop is running with WSL 2 backend. Enable "Use the WSL 2 based engine". |
+| **Out of Memory (OOM)** | Reduce `per_device_train_batch_size` to 1. Increase `gradient_accumulation_steps`. Use `max_seq_length: 512` instead of 768. |
+| **Model Download Fails** | Check internet connection. Set `HF_HUB_DISABLE_TELEMETRY=1`. Use `huggingface-cli login` if rate limited. |
+| **Scripts Won't Run** | Run `Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` in PowerShell. |
 
 ## License
 
-Apache 2.0 - See base model license at https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0
+### Code
+
+This project is licensed under **Apache 2.0** - see the [LICENSE](LICENSE) file in the repository root.
+
+### Base Model
+
+The TinyLlama base model `TinyLlama/TinyLlama-1.1B-Chat-v1.0` is licensed under **Apache 2.0** at https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0. That license governs use of the base model weights; this project adds LoRA adapters, dataset tools, and conversion scripts which are separate under Apache 2.0.
+
+### Third-Party
+
+- `llama.cpp` (GGUF conversion) - https://github.com/ggml-org/llama.cpp (MIT license)
+- `fastapi` - MIT license
+- `transformers` - Apache 2.0 license
+
+---
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/foo`
+3. Commit your changes: `git commit -m "Add foo"`
+4. Push to branch: `git push origin feature/foo`
+5. Open a Pull Request
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
+
+---
+
+## Limitations & Disclaimer
+
+- **Model scope**: TMC-LM only answers questions based on officially provided TMC source documents. It does not general knowledge beyond what it was trained on.
+- **Hallucination risk**: Even with grounded training, 1.1B parameter models can produce incorrect or nonsensical answers. Always verify critical information.
+- **Out-of-scope responses**: The model is designed to say "I do not know" when questions are outside the trained TMC knowledge base. However, this behavior is not guaranteed 100% of the time.
+- **Privacy**: No user data is stored or transmitted unless you use the FastAPI endpoint (`/query`). Docker runs are ephemeral.
+- **Academic/research use only**: This scaffold is intended for educational and institutional AI experimentation. Do not deploy as a production customer-facing system without additional safety guards.
+- **Quantization trade-offs**: GGUF quantization (Q4_K_M, etc.) reduces file size and speeds up inference but may slightly change answer quality compared to full-precision FP16.
+
+### Roadmap (planned)
+
+- [ ] Add RAG pipeline instead of pure LoRA fine-tuning
+- [ ] Support multi-modal inputs (images, tables from Excel)
+- [ ] Web UI with user authentication
+- [ ] Evaluation dataset generation from `documents.md`
+- [ ] Windows installer (no PowerShell required)

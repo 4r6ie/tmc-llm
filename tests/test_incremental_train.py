@@ -15,3 +15,12 @@ class TestGetNextVersion:
     def testHandlesSinglePart(self, tmp_path: Path) -> None:
         result = get_next_version(tmp_path, "1")
         assert result == "1.1"
+
+    def testPreservesSuffix(self, tmp_path: Path) -> None:
+        assert get_next_version(tmp_path, "1.0-qa") == "1.1-qa"
+
+    def testPreservesSuffixSinglePart(self, tmp_path: Path) -> None:
+        assert get_next_version(tmp_path, "1-qa") == "1.1-qa"
+
+    def testHandlesNonNumericGracefully(self, tmp_path: Path) -> None:
+        assert get_next_version(tmp_path, "abc") == "abc.1"

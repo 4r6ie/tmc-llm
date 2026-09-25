@@ -6,24 +6,28 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     HF_HUB_DISABLE_TELEMETRY=1
 
-# Install system dependencies
+# Install system dependencies.
+# Ubuntu 22.04 (jammy) ships Python 3.10 by default and has no python3.12
+# package, so we pull 3.12 from the deadsnakes PPA.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
     python3.12 python3.12-venv python3.12-dev \
     git cmake build-essential tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python 3.12 as default
+# Set Python 3.12 as default and bootstrap pip (the .deb does not ship pip3.12)
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 \
-    && update-alternatives --install /usr/bin/pip pip /usr/bin/pip3.12 1
+    && python3.12 -m ensurepip --upgrade
 
 WORKDIR /app
 
 # Copy package metadata and source first so the editable install inside
 # requirements.txt (-e .[local]) can resolve the project itself
-COPY pyproject.toml ./
+COPY pyproject.toml requirements.txt ./
 COPY src ./src
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN python3.12 -m pip install --upgrade pip && python3.12 -m pip install -r requirements.txt
 
 # Copy the rest of the project
 COPY . .

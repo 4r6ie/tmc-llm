@@ -49,19 +49,21 @@ def find_model_path(model_path: Path | None = None) -> Path:
 # inference is serialized across requests.
 _MODEL: Any = None
 _MODEL_PATH: Path | None = None
+_MODEL_CTX_SIZE: int | None = None
 _INFERENCE_LOCK = threading.Lock()
 
 
 def get_loaded_model(model_path: Path, ctx_size: int) -> Any:
     """Return the cached Llama instance, loading the GGUF only on first use."""
-    global _MODEL, _MODEL_PATH
+    global _MODEL, _MODEL_PATH, _MODEL_CTX_SIZE
     resolved = model_path.resolve()
-    if _MODEL is None or resolved != _MODEL_PATH:
+    if _MODEL is None or resolved != _MODEL_PATH or ctx_size != _MODEL_CTX_SIZE:
         from llama_cpp import Llama
 
         logger.info("Loading GGUF model: %s (n_ctx=%d)", model_path, ctx_size)
         _MODEL = Llama(model_path=str(model_path), n_ctx=ctx_size, verbose=False)
         _MODEL_PATH = resolved
+        _MODEL_CTX_SIZE = ctx_size
     return _MODEL
 
 
@@ -92,13 +94,21 @@ class Answer(BaseModel):
 
 
 @app.get("/")
-async def root() -> dict[str, str]:
-    """Health check endpoint."""
-    model_path = find_model_path()
+async def root() -> dict[str, str | bool]:
+    """Health check endpoint (never 500: reports model availability)."""
+    model_path = find_model_path_if_exists()
+    if model_path is None:
+        return {
+            "status": "ok",
+            "message": "TMC-LM API is running (no GGUF model found)",
+            "model": "",
+            "found": False,
+        }
     return {
         "status": "ok",
         "message": "TMC-LM API is running",
         "model": str(model_path),
+        "found": True,
     }
 
 

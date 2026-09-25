@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 
 from tmc_llm.dataset_builder import build_dataset, build_label_examples, extract_label_values, extract_sections
-from tmc_llm.document_loader import LoadedDocument
+from tmc_llm.document_loader import LoadedDocument, discover_documents
 
 SAMPLE_TEXT = """
 BRIEF HISTORY:
@@ -76,6 +76,40 @@ def test_build_dataset_from_source_folder(tmp_path: Path) -> None:
 
     assert metadata["source_files"] == [str(source)]
     assert metadata["total_examples"] >= 9
+
+
+def test_qa_pair_files_are_not_ingested_as_raw_documents(tmp_path: Path) -> None:
+    """qa_for_training.jsonl / tmc_qa.json are QA pairs, not documents.
+
+    They should be loaded once as chat examples (load_chat_jsonl_pairs /
+    load_qa_pairs) and excluded from document discovery, so their content is
+    not duplicated as raw file text too.
+    """
+    source_dir = tmp_path / "sources"
+    output_dir = tmp_path / "processed"
+    source_dir.mkdir()
+    (source_dir / "manual.txt").write_text(SAMPLE_TEXT, encoding="utf-8")
+    (source_dir / "tmc_qa.json").write_text(json.dumps([{"question": "Q1?", "answer": "A1."}]), encoding="utf-8")
+    qa_jsonl = source_dir / "qa_for_training.jsonl"
+    qa_jsonl.write_text(
+        json.dumps(
+            {
+                "messages": [
+                    {"role": "user", "content": "Q2?"},
+                    {"role": "assistant", "content": "A2."},
+                ]
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    assert qa_jsonl in discover_documents(source_dir)
+
+    metadata = build_dataset(None, output_dir, source_dir)
+
+    assert all("qa_for_training.jsonl" not in path and "tmc_qa.json" not in path for path in metadata["source_files"])
+    assert metadata["qa_pairs"] == 2, "Both QA pair files should still be loaded as chat examples"
 
 
 def _load_split_sources(path: Path) -> list[str]:

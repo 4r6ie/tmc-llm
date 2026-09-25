@@ -409,9 +409,12 @@ def load_qa_pairs(qa_path: Path) -> list[Example]:
     if not qa_path.exists():
         return examples
     data = json.loads(qa_path.read_text(encoding="utf-8"))
-    for item in data:
-        question = item.get("question", "").strip()
-        answer = item.get("answer", "").strip()
+    items = data if isinstance(data, list) else [data]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("question", "")).strip()
+        answer = str(item.get("answer", "")).strip()
         if not question or not answer:
             continue
         source = f"qa:{qa_path.as_posix()}:{question[:60]}"
@@ -420,6 +423,54 @@ def load_qa_pairs(qa_path: Path) -> list[Example]:
                 user=question,
                 assistant=answer,
                 source=source,
+            )
+        )
+    return examples
+
+
+def load_chat_jsonl_pairs(qa_path: Path) -> list[Example]:
+    """Load chat-format QA pairs from a .jsonl file.
+
+    Each line is {"messages": [{"role": "user", ...}, {"role": "assistant", ...}]}.
+    This covers data/raw/tmc_sources/qa_for_training.jsonl, which the dataset
+    builder previously ignored.
+    """
+    examples: list[Example] = []
+    if not qa_path.exists():
+        return examples
+    for lineno, line in enumerate(qa_path.read_text(encoding="utf-8", errors="replace").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        messages = item.get("messages") if isinstance(item, dict) else None
+        if not isinstance(messages, list):
+            continue
+        user = next(
+            (
+                str(m.get("content", "")).strip()
+                for m in reversed(messages)
+                if isinstance(m, dict) and m.get("role") == "user"
+            ),
+            "",
+        )
+        assistant = next(
+            (
+                str(m.get("content", "")).strip()
+                for m in reversed(messages)
+                if isinstance(m, dict) and m.get("role") == "assistant"
+            ),
+            "",
+        )
+        if not user or not assistant:
+            continue
+        examples.append(
+            Example(
+                user=user,
+                assistant=assistant,
+                source=f"qa:{qa_path.as_posix()}:{lineno}:{user[:60]}",
             )
         )
     return examples
@@ -476,8 +527,13 @@ def collect_source_paths(source: Path | None, source_dir: Path | None) -> list[P
     if source and source.exists():
         paths.append(source)
     if source_dir:
-        qa_file = source_dir / "tmc_qa.json"
-        paths.extend(path for path in discover_documents(source_dir) if path.resolve() != qa_file.resolve())
+        # QA pair files are ingested as chat examples (load_qa_pairs /
+        # load_chat_jsonl_pairs), so exclude them from document discovery to
+        # avoid duplicating their content as raw document text.
+        qa_files = {source_dir / "tmc_qa.json", source_dir / "qa_for_training.jsonl"}
+        paths.extend(
+            path for path in discover_documents(source_dir) if path.resolve() not in {f.resolve() for f in qa_files}
+        )
 
     seen: set[Path] = set()
     unique_paths: list[Path] = []
@@ -500,7 +556,11 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
     sections = extract_sections(text)
 
     qa_path = source_dir / "tmc_qa.json" if source_dir else Path("data/raw/tmc_sources/tmc_qa.json")
+    qa_chat_path = (
+        source_dir / "qa_for_training.jsonl" if source_dir else Path("data/raw/tmc_sources/qa_for_training.jsonl")
+    )
     qa_examples = load_qa_pairs(qa_path) if qa_path.exists() else []
+    qa_examples += load_chat_jsonl_pairs(qa_chat_path) if qa_chat_path.exists() else []
     negative_examples = build_negative_examples()
     conversational_label_examples = build_conversational_label_examples(documents)
     conversational_section_examples = build_all_conversational_section_examples(documents)
@@ -550,6 +610,10 @@ def build_dataset(source: Path | None, output_dir: Path, source_dir: Path | None
     write_jsonl(output_dir / "train.jsonl", (example.to_json() for example in train))
     write_jsonl(output_dir / "validation.jsonl", (example.to_json() for example in validation))
     write_jsonl(output_dir / "test.jsonl", (example.to_json() for example in test))
+    # QA-only splits consumed by configs/train_lora_qa.yaml. Derived from the
+    # same group-safe splits above so no QA fact leaks across train/validation.
+    write_jsonl(output_dir / "qa_train.jsonl", (e.to_json() for e in train if e.source.startswith("qa:")))
+    write_jsonl(output_dir / "qa_validation.jsonl", (e.to_json() for e in validation if e.source.startswith("qa:")))
     write_corpus(output_dir / "corpus.txt", documents)
 
     metadata = {

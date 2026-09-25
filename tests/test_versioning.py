@@ -14,6 +14,7 @@ from tmc_llm.versioning import (
     promote_version,
     register_version,
     set_current_version,
+    update_version_artifacts,
 )
 
 
@@ -105,6 +106,36 @@ class TestGetCurrentGguf:
         vp.write_text("{not json", encoding="utf-8")
 
         assert get_current_gguf(vp) is None
+
+
+class TestUpdateVersionArtifacts:
+    def test_updates_merged_dir(self, tmp_path: Path) -> None:
+        vp = tmp_path / "versions.json"
+        register_version("1.0", tmp_path / "adapter", versions_path=vp)
+        merged = tmp_path / "merged"
+        merged.mkdir()
+
+        entry = update_version_artifacts("1.0", vp, merged_dir=merged, status="merged")
+
+        assert entry is not None
+        assert entry["merged_dir"] == str(merged)
+        assert entry["status"] == "merged"
+
+    def test_updates_gguf_dir(self, tmp_path: Path) -> None:
+        vp = tmp_path / "versions.json"
+        register_version("1.0", tmp_path / "adapter", versions_path=vp)
+        gguf = tmp_path / "model.gguf"
+        gguf.write_text("gguf", encoding="utf-8")
+
+        entry = update_version_artifacts("1.0", vp, gguf_dir=gguf)
+
+        assert entry is not None
+        assert entry["gguf_dir"] == str(gguf)
+        assert get_current_gguf(vp) == gguf
+
+    def test_returns_none_for_unregistered_version(self, tmp_path: Path) -> None:
+        vp = tmp_path / "versions.json"
+        assert update_version_artifacts("9.9", vp, merged_dir=tmp_path / "m") is None
 
 
 class TestPromoteCli:

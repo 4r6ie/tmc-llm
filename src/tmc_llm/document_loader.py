@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .text_cleaning import clean_text, compact_spaces
 
-SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv", ".json"}
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv", ".json", ".jsonl"}
 
 
 @dataclass(frozen=True)
@@ -40,6 +40,8 @@ def load_document(path: Path) -> LoadedDocument:
         text = load_csv(path)
     elif suffix == ".json":
         text = load_json(path)
+    elif suffix == ".jsonl":
+        text = load_jsonl_file(path)
     else:
         raise ValueError(f"Unsupported file type: {path}")
 
@@ -141,6 +143,40 @@ def load_csv(path: Path) -> str:
 def load_json(path: Path) -> str:
     data = json.loads(path.read_text(encoding="utf-8"))
     return flatten_json(data)
+
+
+def load_jsonl_file(path: Path) -> str:
+    """Flatten a .jsonl file (one JSON object per line).
+
+    Handles chat-format lines ({"messages": [...]}) such as
+    data/raw/tmc_sources/qa_for_training.jsonl, question/answer lines,
+    and generic JSON lines.
+    """
+    parts: list[str] = []
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError:
+            parts.append(line.strip())
+            continue
+        messages = item.get("messages") if isinstance(item, dict) else None
+        if isinstance(messages, list):
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                role = str(message.get("role", "")).upper()
+                content = str(message.get("content", "")).strip()
+                if content:
+                    parts.append(f"{role}: {content}" if role else content)
+        elif isinstance(item, dict) and "question" in item and "answer" in item:
+            parts.append(f"Q: {item['question']}\nA: {item['answer']}")
+        else:
+            flattened = flatten_json(item)
+            if flattened.strip():
+                parts.append(flattened)
+    return "\n".join(parts)
 
 
 def flatten_json(value: object, prefix: str = "") -> str:

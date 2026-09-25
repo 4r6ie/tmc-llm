@@ -80,6 +80,34 @@ def get_version_info(version: str, versions_path: Path | None = None) -> dict[st
     return data["versions"].get(version)
 
 
+def update_version_artifacts(
+    version: str,
+    versions_path: Path | None = None,
+    *,
+    merged_dir: Path | None = None,
+    gguf_dir: Path | None = None,
+    status: str | None = None,
+) -> dict[str, Any] | None:
+    """Update artifact paths on an already-registered version.
+
+    Returns the updated entry, or None if the version is not registered.
+    """
+    vp = versions_path or Path(VERSIONS_FILE)
+    data = load_versions(vp)
+    entry = data["versions"].get(version)
+    if entry is None:
+        return None
+
+    if merged_dir is not None:
+        entry["merged_dir"] = str(merged_dir)
+    if gguf_dir is not None:
+        entry["gguf_dir"] = str(gguf_dir)
+    if status is not None:
+        entry["status"] = status
+    save_versions(vp, data)
+    return entry
+
+
 def get_current_gguf(versions_path: Path | None = None) -> Path | None:
     """Return the GGUF file of the current model version, if one is registered.
 
@@ -180,6 +208,16 @@ def parse_args() -> argparse.Namespace:
     prom.add_argument("--merged-dir", type=Path, default=None, help="Directory to copy the merged model into.")
     prom.add_argument("--gguf-dir", type=Path, default=None, help="GGUF file or directory to register for serving.")
 
+    gguf_cmd = sub.add_parser("set-gguf", help="Record the GGUF artifact for an already-registered version")
+    gguf_cmd.add_argument("--version", required=True)
+    gguf_cmd.add_argument("--gguf-dir", type=Path, required=True)
+
+    merged_cmd = sub.add_parser(
+        "set-merged", help="Record the merged-model directory for an already-registered version"
+    )
+    merged_cmd.add_argument("--version", required=True)
+    merged_cmd.add_argument("--merged-dir", type=Path, required=True)
+
     dele = sub.add_parser("delete", help="Remove a version from registry")
     dele.add_argument("--version", required=True)
 
@@ -203,6 +241,18 @@ def main() -> None:
         print(f"Switched to version {args.version}")
     elif args.command == "promote":
         entry = promote_version(args.version, args.adapter_dir, merged_dir=args.merged_dir, gguf_dir=args.gguf_dir)
+        print(json.dumps(entry, indent=2))
+    elif args.command == "set-gguf":
+        entry = update_version_artifacts(args.version, gguf_dir=args.gguf_dir, status="promoted")
+        if entry is None:
+            print(f"Version {args.version} not found. Register it first with 'register'.", file=sys.stderr)
+            sys.exit(1)
+        print(json.dumps(entry, indent=2))
+    elif args.command == "set-merged":
+        entry = update_version_artifacts(args.version, merged_dir=args.merged_dir)
+        if entry is None:
+            print(f"Version {args.version} not found. Register it first with 'register'.", file=sys.stderr)
+            sys.exit(1)
         print(json.dumps(entry, indent=2))
     elif args.command == "delete":
         ok = delete_version(args.version)

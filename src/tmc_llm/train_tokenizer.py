@@ -1,3 +1,15 @@
+"""EXPERIMENTAL: train a custom SentencePiece tokenizer.
+
+This module is intentionally NOT wired into the training/evaluation pipeline.
+``train_lora.py`` and ``evaluate.py`` always load the base model tokenizer
+(TinyLlama uses a 32K-vocab tokenizer matched to its pretrained embeddings),
+because replacing it with a smaller custom model would discard the knowledge
+encoded in the pretrained embedding matrix.
+
+Keep this around only to experiment with domain-word attention. Do not use the
+produced tokenizer for actual model training.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -8,6 +20,12 @@ from pathlib import Path
 import sentencepiece as spm
 
 logger = logging.getLogger(__name__)
+
+EXPERIMENTAL_WARNING = (
+    "EXPERIMENTAL: this custom tokenizer is NOT used by train_lora.py or evaluate.py. "
+    "They load the base model tokenizer because a reduced vocab would destroy the "
+    "pretrained embeddings. Use this only for experiments."
+)
 
 SYSTEM_PROMPT_PREFIX = "You are TMC-LM, an offline assistant for Trinidad Municipal College. "
 
@@ -89,6 +107,7 @@ def run_training(
     extra_dirs: list[Path] | None = None,
 ) -> Path:
     """Full pipeline: collect text -> train SentencePiece -> save metadata."""
+    logging.warning(EXPERIMENTAL_WARNING)
     text = collect_training_text(corpus_path, extra_dirs)
     if not text.strip():
         raise ValueError(f"No training text found starting from {corpus_path}")

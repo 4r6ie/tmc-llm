@@ -21,17 +21,35 @@ from .train_lora import (
     quiet_external_noise,
     tokenize_dataset,
 )
+from .versioning import VERSIONS_FILE, register_version
 
 logger = logging.getLogger(__name__)
 
 
 def get_next_version(base_dir: Path, current_version: str) -> str:
-    """Increment the minor version number."""
-    parts = current_version.split(".")
-    if len(parts) == 2:
-        major, minor = int(parts[0]), int(parts[1])
-        return f"{major}.{minor + 1}"
-    return current_version + ".1"
+    """Increment the minor version number.
+
+    Handles labels like ``1.0-qa``: the trailing ``-qa`` is stripped before the
+    numeric increment, then re-appended so ``1.0-qa -> 1.1-qa``. Non-numeric
+    segments and bare versions (``1``) fall back to a defensive default.
+    """
+    parts = current_version.split("-", 1)
+    bare = parts[0]
+    suffix = f"-{parts[1]}" if len(parts) == 2 else ""
+
+    dot_parts = bare.split(".")
+    if len(dot_parts) == 2:
+        try:
+            major, minor = int(dot_parts[0]), int(dot_parts[1])
+            return f"{major}.{minor + 1}{suffix}"
+        except ValueError:
+            pass
+    if len(dot_parts) == 1:
+        try:
+            return f"{int(dot_parts[0])}.1{suffix}"
+        except ValueError:
+            pass
+    return f"{current_version}.1"
 
 
 def merge_adapter_into_model(model: Any, adapter_dir: Path) -> Any:
@@ -169,6 +187,18 @@ def incremental_train(
     }
     meta_path = new_output_dir / "metadata.json"
     meta_path.write_text(json.dumps(result_metadata, indent=2), encoding="utf-8")
+
+    try:
+        register_version(
+            version=next_version,
+            adapter_dir=new_output_dir,
+            description=f"Incremental fine-tune v{next_version} from v{current_version}",
+            base_version=current_version,
+        )
+        print(f"Registered model version {next_version} in {VERSIONS_FILE}")
+    except ValueError:
+        print(f"Version {next_version} already registered in {VERSIONS_FILE}; skipping.")
+
     logger.info("Incremental training complete. v%s saved to %s", next_version, new_output_dir)
     return result_metadata
 

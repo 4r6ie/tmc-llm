@@ -21,6 +21,8 @@ from transformers import (
 )
 from transformers.utils import logging as transformers_logging
 
+from .versioning import VERSIONS_FILE, register_version
+
 
 def quiet_external_noise() -> None:
     os.environ.setdefault("HF_HUB_DISABLE_TELEMETRY", "1")
@@ -191,7 +193,8 @@ def train(config_path: Path, logdir: Path | None = None) -> None:
 
     output_dir = config["output_dir"]
     versioned_dir = output_dir
-    logging_dir = logdir if logdir else Path(config.get("logging_dir", ""))
+    configured_logging_dir = str(config.get("logging_dir", "") or "").strip()
+    logging_dir = logdir if logdir else (Path(configured_logging_dir) if configured_logging_dir else None)
 
     training_kwargs = {
         "output_dir": versioned_dir,
@@ -258,6 +261,19 @@ def train(config_path: Path, logdir: Path | None = None) -> None:
     metadata_path = Path(versioned_dir) / "metadata.json"
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
+    # Register this version in the model registry so cli/api can resolve it.
+    try:
+        register_version(
+            version=version,
+            adapter_dir=Path(versioned_dir),
+            description=f"LoRA fine-tune v{version} from {base_model}",
+        )
+        print(f"Registered model version {version} in {VERSIONS_FILE}")
+    except ValueError:
+        # The version is already registered (e.g. retraining the same version).
+        print(f"Version {version} already registered in {VERSIONS_FILE}; skipping.")
+
     print(f"Training complete. Model version {version} saved to {versioned_dir}")
     print(f"Metadata written to {metadata_path}")
 
